@@ -1,5 +1,8 @@
 from typing import Optional, List, Tuple, Set
 
+MIN_BOARD_SIZE = 5
+MAX_BOARD_SIZE = 50
+
 _transformation_cache = {}
 _offset_cache = {}
 
@@ -63,8 +66,8 @@ def normalize_pattern(cells: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
 
 class Board:
     def __init__(self, width: int, height: int):
-        self.width = max(5, min(width, 30))
-        self.height = max(5, min(height, 30))
+        self.width = max(MIN_BOARD_SIZE, min(width, MAX_BOARD_SIZE))
+        self.height = max(MIN_BOARD_SIZE, min(height, MAX_BOARD_SIZE))
         self.grid: List[List[Optional[int]]] = [
             [None for _ in range(self.width)] for _ in range(self.height)
         ]

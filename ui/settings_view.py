@@ -1,6 +1,7 @@
 import arcade
 import arcade.gui
-from game.player import AVAILABLE_FIGURES, AVAILABLE_COLORS, COLOR_NAMES
+from game.board import MIN_BOARD_SIZE, MAX_BOARD_SIZE
+from game.player import AVAILABLE_FIGURES, AVAILABLE_COLORS, COLOR_NAMES, MAX_PLAYERS
 
 
 class SettingsView(arcade.View):
@@ -19,6 +20,7 @@ class SettingsView(arcade.View):
         self.dropdown_player_index = None
         self.dropdown_items = []
         self.dropdown_rects = []
+        self.dropdown_anchor = None
         self.pattern_scroll_offset = 0
         self.input_bg_texture = None
     
@@ -27,141 +29,172 @@ class SettingsView(arcade.View):
         self.player_settings = []
         
         settings = self.window.game_settings
+        self.ensure_players_capacity()
         if self.input_bg_texture is None:
             self.input_bg_texture = arcade.make_soft_square_texture(64, (30, 30, 30, 255), 255, 255)
+        
+        scale = self.get_scale()
+        title_size = int(40 * scale)
+        header_size = int(22 * scale)
+        label_size = int(20 * scale)
+        small_label_size = int(18 * scale)
+        tiny_label_size = int(14 * scale)
+        btn_height = max(30, int(35 * scale))
+        small_btn_width = max(40, int(45 * scale))
+        input_height = max(30, int(40 * scale))
+        row_spacing = max(6, int(12 * scale))
+        section_spacing = max(12, int(20 * scale))
+        
+        player_count = settings["player_count"]
+        player_columns = self.get_player_columns(player_count)
+        name_width = max(110, int(150 * scale))
+        figure_width = max(44, int(50 * scale))
+        color_width = max(95, int(110 * scale))
+        if player_columns == 2:
+            name_width = max(100, int(130 * scale))
+            color_width = max(90, int(100 * scale))
+        
+        self.dropdown_item_height = max(24, int(30 * scale))
+        self.dropdown_figure_width = max(48, int(60 * scale))
+        self.dropdown_color_width = max(120, int(150 * scale))
+        self.dropdown_gap = max(4, int(6 * scale))
         
         main_box = arcade.gui.UIBoxLayout()
         
         title_label = arcade.gui.UILabel(
             text="Настройки",
-            font_size=40,
+            font_size=title_size,
             font_name="Arial",
             bold=True,
             text_color=(255, 255, 255)
         )
-        main_box.add(title_label.with_space_around(bottom=40))
+        main_box.add(title_label.with_padding(bottom=section_spacing * 2))
         
         width_box = arcade.gui.UIBoxLayout(vertical=False)
         
         width_text = arcade.gui.UILabel(
             text="Ширина:",
-            font_size=20,
+            font_size=label_size,
             text_color=(255, 255, 255)
         )
-        width_box.add(width_text.with_space_around(right=15))
+        width_box.add(width_text.with_padding(right=15))
         
-        width_minus = arcade.gui.UIFlatButton(text="-", width=45, height=35)
+        width_minus = arcade.gui.UIFlatButton(text="-", width=small_btn_width, height=btn_height)
         width_minus.on_click = self.on_decrease_width
-        width_box.add(width_minus.with_space_around(right=10))
+        width_box.add(width_minus.with_padding(right=10))
         
         self.width_label = arcade.gui.UILabel(
             text=str(settings["width"]),
-            font_size=22,
+            font_size=label_size,
             text_color=(255, 255, 100)
         )
-        width_box.add(self.width_label.with_space_around(right=10))
+        width_box.add(self.width_label.with_padding(right=10))
         
-        width_plus = arcade.gui.UIFlatButton(text="+", width=45, height=35)
+        width_plus = arcade.gui.UIFlatButton(text="+", width=small_btn_width, height=btn_height)
         width_plus.on_click = self.on_increase_width
         width_box.add(width_plus)
         
-        main_box.add(width_box.with_space_around(bottom=15))
+        main_box.add(width_box.with_padding(bottom=row_spacing))
         
         height_box = arcade.gui.UIBoxLayout(vertical=False)
         
         height_text = arcade.gui.UILabel(
             text="Высота:",
-            font_size=20,
+            font_size=label_size,
             text_color=(255, 255, 255)
         )
-        height_box.add(height_text.with_space_around(right=15))
+        height_box.add(height_text.with_padding(right=15))
         
-        height_minus = arcade.gui.UIFlatButton(text="-", width=45, height=35)
+        height_minus = arcade.gui.UIFlatButton(text="-", width=small_btn_width, height=btn_height)
         height_minus.on_click = self.on_decrease_height
-        height_box.add(height_minus.with_space_around(right=10))
+        height_box.add(height_minus.with_padding(right=10))
         
         self.height_label = arcade.gui.UILabel(
             text=str(settings["height"]),
-            font_size=22,
+            font_size=label_size,
             text_color=(255, 255, 100)
         )
-        height_box.add(self.height_label.with_space_around(right=10))
+        height_box.add(self.height_label.with_padding(right=10))
         
-        height_plus = arcade.gui.UIFlatButton(text="+", width=45, height=35)
+        height_plus = arcade.gui.UIFlatButton(text="+", width=small_btn_width, height=btn_height)
         height_plus.on_click = self.on_increase_height
         height_box.add(height_plus)
         
-        main_box.add(height_box.with_space_around(bottom=20))
+        main_box.add(height_box.with_padding(bottom=section_spacing))
         
         players_box = arcade.gui.UIBoxLayout(vertical=False)
         
         players_label = arcade.gui.UILabel(
             text="Игроков:",
-            font_size=20,
+            font_size=label_size,
             text_color=(255, 255, 255)
         )
-        players_box.add(players_label.with_space_around(right=15))
+        players_box.add(players_label.with_padding(right=15))
         
-        minus_btn = arcade.gui.UIFlatButton(text="-", width=45, height=35)
+        minus_btn = arcade.gui.UIFlatButton(text="-", width=small_btn_width, height=btn_height)
         minus_btn.on_click = self.on_decrease_players
-        players_box.add(minus_btn.with_space_around(right=10))
+        players_box.add(minus_btn.with_padding(right=10))
         
         self.player_count_label = arcade.gui.UILabel(
             text=str(settings["player_count"]),
-            font_size=22,
+            font_size=label_size,
             text_color=(255, 255, 100)
         )
-        players_box.add(self.player_count_label.with_space_around(right=10))
+        players_box.add(self.player_count_label.with_padding(right=10))
         
-        plus_btn = arcade.gui.UIFlatButton(text="+", width=45, height=35)
+        plus_btn = arcade.gui.UIFlatButton(text="+", width=small_btn_width, height=btn_height)
         plus_btn.on_click = self.on_increase_players
         players_box.add(plus_btn)
         
-        main_box.add(players_box.with_space_around(bottom=20))
+        main_box.add(players_box.with_padding(bottom=section_spacing))
         
         hide_board_box = arcade.gui.UIBoxLayout(vertical=False)
         
         hide_board_label = arcade.gui.UILabel(
             text="Скрывать доску после победы:",
-            font_size=18,
+            font_size=small_label_size,
             text_color=(255, 255, 255)
         )
-        hide_board_box.add(hide_board_label.with_space_around(right=15))
+        hide_board_box.add(hide_board_label.with_padding(right=15))
         
         hide_board_value = settings.get("hide_board_on_win", True)
         self.hide_board_btn = arcade.gui.UIFlatButton(
             text="Да" if hide_board_value else "Нет",
-            width=80,
-            height=35
+            width=max(70, int(80 * scale)),
+            height=btn_height
         )
         self.hide_board_btn.on_click = self.on_toggle_hide_board
         hide_board_box.add(self.hide_board_btn)
         
-        main_box.add(hide_board_box.with_space_around(bottom=25))
+        main_box.add(hide_board_box.with_padding(bottom=section_spacing))
         
         player_config_label = arcade.gui.UILabel(
             text="Настройки игроков:",
-            font_size=22,
+            font_size=header_size,
             bold=True,
             text_color=(255, 255, 255)
         )
-        main_box.add(player_config_label.with_space_around(bottom=15))
+        main_box.add(player_config_label.with_padding(bottom=row_spacing))
         
-        for i in range(4):
+        players_container = arcade.gui.UIBoxLayout(vertical=False)
+        column_boxes = [arcade.gui.UIBoxLayout() for _ in range(player_columns)]
+        players_per_col = (player_count + player_columns - 1) // player_columns
+        
+        for i in range(player_count):
             player_box = arcade.gui.UIBoxLayout(vertical=False)
             
             num_label = arcade.gui.UILabel(
                 text=f"{i + 1}.",
-                font_size=18,
+                font_size=small_label_size,
                 text_color=(200, 200, 200)
             )
-            player_box.add(num_label.with_space_around(right=10))
+            player_box.add(num_label.with_padding(right=10))
             
             name_input = arcade.gui.UIInputText(
                 text=settings["players"][i].get("name", f"Игрок {i + 1}"),
-                width=140,
-                height=40,
-                font_size=18,
+                width=name_width,
+                height=input_height,
+                font_size=small_label_size,
                 text_color=(255, 255, 255)
             )
             name_input.caret.color = (255, 255, 255)
@@ -170,23 +203,23 @@ class SettingsView(arcade.View):
             except Exception:
                 pass
             name_input.player_index = i
-            name_widget = name_input.with_background(self.input_bg_texture, 4, 6, 4, 6).with_border(2, arcade.color.WHITE)
-            player_box.add(name_widget.with_space_around(right=15))
+            name_widget = name_input.with_background(texture=self.input_bg_texture).with_border(width=2, color=arcade.color.WHITE)
+            player_box.add(name_widget.with_padding(right=15))
             
             figure_btn = arcade.gui.UIFlatButton(
                 text=settings["players"][i]["figure"],
-                width=50,
-                height=35
+                width=figure_width,
+                height=btn_height
             )
             figure_btn.player_index = i
             figure_btn.on_click = self.on_open_figure_dropdown
-            player_box.add(figure_btn.with_space_around(right=10))
+            player_box.add(figure_btn.with_padding(right=10))
             
             color = settings["players"][i]["color"]
             color_btn = arcade.gui.UIFlatButton(
                 text=COLOR_NAMES.get(color, "?"),
-                width=110,
-                height=35
+                width=color_width,
+                height=btn_height
             )
             color_btn.player_index = i
             color_btn.on_click = self.on_open_color_dropdown
@@ -198,8 +231,16 @@ class SettingsView(arcade.View):
                 "figure_btn": figure_btn,
                 "color_btn": color_btn
             })
-            
-            main_box.add(player_box.with_space_around(bottom=12))
+            column_index = min(i // players_per_col, player_columns - 1)
+            column_boxes[column_index].add(player_box.with_padding(bottom=row_spacing))
+        
+        for idx, col in enumerate(column_boxes):
+            if idx < player_columns - 1:
+                players_container.add(col.with_padding(right=section_spacing))
+            else:
+                players_container.add(col)
+        
+        main_box.add(players_container.with_padding(bottom=section_spacing))
         
         patterns = settings.get("win_patterns", [])
         total_patterns = len(patterns)
@@ -207,22 +248,22 @@ class SettingsView(arcade.View):
         pattern_header = arcade.gui.UIBoxLayout(vertical=False)
         pattern_label = arcade.gui.UILabel(
             text=f"Фигуры ({total_patterns}):",
-            font_size=20,
+            font_size=label_size,
             bold=True,
             text_color=(255, 255, 255)
         )
-        pattern_header.add(pattern_label.with_space_around(right=15))
+        pattern_header.add(pattern_label.with_padding(right=15))
         
         if total_patterns > self.MAX_VISIBLE_PATTERNS:
-            prev_btn = arcade.gui.UIFlatButton(text="▲", width=30, height=25)
+            prev_btn = arcade.gui.UIFlatButton(text="▲", width=max(26, int(30 * scale)), height=max(22, int(25 * scale)))
             prev_btn.on_click = self.on_pattern_scroll_up
-            pattern_header.add(prev_btn.with_space_around(right=5))
+            pattern_header.add(prev_btn.with_padding(right=5))
             
-            next_btn = arcade.gui.UIFlatButton(text="▼", width=30, height=25)
+            next_btn = arcade.gui.UIFlatButton(text="▼", width=max(26, int(30 * scale)), height=max(22, int(25 * scale)))
             next_btn.on_click = self.on_pattern_scroll_down
             pattern_header.add(next_btn)
         
-        main_box.add(pattern_header.with_space_around(top=10, bottom=8))
+        main_box.add(pattern_header.with_padding(top=row_spacing, bottom=row_spacing))
         
         self.pattern_buttons = []
         start_idx = self.pattern_scroll_offset
@@ -234,30 +275,30 @@ class SettingsView(arcade.View):
             
             toggle_btn = arcade.gui.UIFlatButton(
                 text="✓" if pattern.get("enabled", True) else "✗",
-                width=35,
-                height=28
+                width=max(30, int(35 * scale)),
+                height=max(24, int(28 * scale))
             )
             toggle_btn.pattern_index = i
             toggle_btn.on_click = self.on_toggle_pattern
-            pattern_box.add(toggle_btn.with_space_around(right=8))
+            pattern_box.add(toggle_btn.with_padding(right=8))
             
             name_text = pattern.get("name", f"Фигура {i+1}")
             if len(name_text) > 12:
                 name_text = name_text[:10] + ".."
             name_label = arcade.gui.UILabel(
                 text=name_text,
-                font_size=14,
+                font_size=tiny_label_size,
                 text_color=(255, 255, 255)
             )
-            pattern_box.add(name_label.with_space_around(right=10))
+            pattern_box.add(name_label.with_padding(right=10))
             
-            edit_btn = arcade.gui.UIFlatButton(text="✎", width=30, height=28)
+            edit_btn = arcade.gui.UIFlatButton(text="✎", width=max(26, int(30 * scale)), height=max(24, int(28 * scale)))
             edit_btn.pattern_index = i
             edit_btn.on_click = self.on_edit_pattern
-            pattern_box.add(edit_btn.with_space_around(right=5))
+            pattern_box.add(edit_btn.with_padding(right=5))
             
             if total_patterns > 1:
-                delete_btn = arcade.gui.UIFlatButton(text="✗", width=30, height=28)
+                delete_btn = arcade.gui.UIFlatButton(text="✗", width=max(26, int(30 * scale)), height=max(24, int(28 * scale)))
                 delete_btn.pattern_index = i
                 delete_btn.on_click = self.on_delete_pattern
                 pattern_box.add(delete_btn)
@@ -268,43 +309,44 @@ class SettingsView(arcade.View):
                 "index": i
             })
             
-            main_box.add(pattern_box.with_space_around(bottom=5))
+            main_box.add(pattern_box.with_padding(bottom=max(4, int(6 * scale))))
         
-        add_pattern_btn = arcade.gui.UIFlatButton(text="+ Добавить", width=120, height=30)
+        add_pattern_btn = arcade.gui.UIFlatButton(text="+ Добавить", width=max(110, int(120 * scale)), height=max(26, int(30 * scale)))
         add_pattern_btn.on_click = self.on_add_pattern
-        main_box.add(add_pattern_btn.with_space_around(bottom=8))
+        main_box.add(add_pattern_btn.with_padding(bottom=row_spacing))
         
         self.error_label = arcade.gui.UILabel(
             text="",
-            font_size=18,
+            font_size=small_label_size,
             text_color=arcade.color.RED
         )
-        main_box.add(self.error_label.with_space_around(bottom=15))
+        main_box.add(self.error_label.with_padding(bottom=section_spacing))
         
         buttons_box = arcade.gui.UIBoxLayout(vertical=False)
         
-        save_button = arcade.gui.UIFlatButton(text="Сохранить", width=160, height=55)
+        save_button = arcade.gui.UIFlatButton(text="Сохранить", width=max(140, int(160 * scale)), height=max(45, int(55 * scale)))
         save_button.on_click = self.on_save_click
-        buttons_box.add(save_button.with_space_around(right=25))
+        buttons_box.add(save_button.with_padding(right=25))
         
-        back_button = arcade.gui.UIFlatButton(text="Назад", width=160, height=55)
+        back_button = arcade.gui.UIFlatButton(text="Назад", width=max(140, int(160 * scale)), height=max(45, int(55 * scale)))
         back_button.on_click = self.on_back_click
         buttons_box.add(back_button)
         
-        main_box.add(buttons_box.with_space_around(top=20))
+        main_box.add(buttons_box.with_padding(top=section_spacing))
         
-        self.manager.add(
-            arcade.gui.UIAnchorWidget(
-                anchor_x="center_x",
-                anchor_y="center_y",
-                child=main_box
-            )
-        )
+        anchor = arcade.gui.UIAnchorLayout()
+        anchor.add(main_box, anchor_x="center", anchor_y="center")
+        self.manager.add(anchor)
     
     def on_show_view(self):
         arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
         self.setup_ui()
         self.manager.enable()
+    
+    def on_resize(self, width, height):
+        super().on_resize(width, height)
+        self.dropdown_active = False
+        self.setup_ui()
     
     def on_hide_view(self):
         self.manager.disable()
@@ -315,53 +357,106 @@ class SettingsView(arcade.View):
         self.draw_dropdown()
     
     def draw_dropdown(self):
-        if not self.dropdown_active:
+        if not self.dropdown_active or not self.dropdown_items or self.dropdown_anchor is None:
             return
         
         self.dropdown_rects = []
-        start_x = self.window.width // 2
-        start_y = self.window.height // 2
-        item_height = 30
-        item_width = 120
+        anchor_x, anchor_y = self.dropdown_anchor
+        item_height = self.dropdown_item_height
+        gap = self.dropdown_gap
+        item_width = self.dropdown_figure_width if self.dropdown_type == "figure" else self.dropdown_color_width
+        
+        total_height_single = len(self.dropdown_items) * item_height + max(0, len(self.dropdown_items) - 1) * gap
+        max_height = min(self.window.height * 0.6, total_height_single)
+        columns = 1
+        if total_height_single > max_height:
+            columns = int(total_height_single // max_height) + 1
+        columns = max(1, min(columns, len(self.dropdown_items)))
+        rows = (len(self.dropdown_items) + columns - 1) // columns
+        
+        total_height = rows * item_height + max(0, rows - 1) * gap
+        total_width = columns * item_width + max(0, columns - 1) * gap
+        
+        margin = 10
+        top_y = anchor_y
+        if top_y - total_height < margin:
+            top_y = min(self.window.height - margin, anchor_y + total_height)
+        
+        left_x = anchor_x - total_width / 2
+        if left_x < margin:
+            left_x = margin
+        if left_x + total_width > self.window.width - margin:
+            left_x = self.window.width - margin - total_width
         
         for i, item in enumerate(self.dropdown_items):
-            rect_y = start_y - i * item_height
-            self.dropdown_rects.append((start_x - item_width // 2, rect_y - item_height // 2, item_width, item_height))
+            col = i % columns
+            row = i // columns
+            center_x = left_x + col * (item_width + gap) + item_width / 2
+            center_y = top_y - row * (item_height + gap) - item_height / 2
+            self.dropdown_rects.append((center_x - item_width / 2, center_y - item_height / 2, item_width, item_height))
             
-            arcade.draw_rectangle_filled(
-                start_x, rect_y,
-                item_width, item_height,
-                arcade.color.DARK_GRAY
-            )
-            arcade.draw_rectangle_outline(
-                start_x, rect_y,
-                item_width, item_height,
-                arcade.color.WHITE, 1
-            )
+            rect = arcade.Rect.from_kwargs(x=center_x, y=center_y, width=item_width, height=item_height)
+            arcade.draw_rect_filled(rect, arcade.color.DARK_GRAY)
+            arcade.draw_rect_outline(rect, arcade.color.WHITE, 1)
             
             if self.dropdown_type == "figure":
                 arcade.draw_text(
-                    item, start_x, rect_y,
-                    arcade.color.WHITE, 16,
+                    item, center_x, center_y,
+                    arcade.color.WHITE, int(item_height * 0.6),
                     anchor_x="center", anchor_y="center"
                 )
             else:
                 color_tuple = item
-                arcade.draw_rectangle_filled(
-                    start_x - 30, rect_y, 20, 20, color_tuple
+                swatch_rect = arcade.Rect.from_kwargs(
+                    x=center_x - item_width / 2 + 14,
+                    y=center_y,
+                    width=16,
+                    height=16
                 )
+                arcade.draw_rect_filled(swatch_rect, color_tuple)
                 arcade.draw_text(
                     COLOR_NAMES.get(color_tuple, "?"),
-                    start_x + 10, rect_y,
-                    arcade.color.WHITE, 12,
+                    center_x + 10, center_y,
+                    arcade.color.WHITE, int(item_height * 0.45),
                     anchor_x="center", anchor_y="center"
                 )
+
+    def get_scale(self):
+        scale = min(self.window.width / 1024, self.window.height / 768)
+        return max(0.75, min(1.2, scale))
+
+    def get_player_columns(self, player_count: int):
+        if self.window.width >= 1100:
+            return 2
+        if self.window.width >= 900 and player_count > 6:
+            return 2
+        return 1
+
+    def ensure_players_capacity(self):
+        settings = self.window.game_settings
+        settings["player_count"] = max(2, min(MAX_PLAYERS, settings.get("player_count", 2)))
+        players = settings.get("players", [])
+        for i in range(len(players), MAX_PLAYERS):
+            players.append({
+                "name": f"Игрок {i + 1}",
+                "figure": AVAILABLE_FIGURES[i],
+                "color": AVAILABLE_COLORS[i]
+            })
+        for i in range(MAX_PLAYERS):
+            if not players[i].get("name"):
+                players[i]["name"] = f"Игрок {i + 1}"
+            if players[i].get("figure") not in AVAILABLE_FIGURES:
+                players[i]["figure"] = AVAILABLE_FIGURES[i % len(AVAILABLE_FIGURES)]
+            if players[i].get("color") not in AVAILABLE_COLORS:
+                players[i]["color"] = AVAILABLE_COLORS[i % len(AVAILABLE_COLORS)]
+        settings["players"] = players
+        self.ensure_unique_settings(update_ui=False)
     
     def on_mouse_press(self, x, y, button, modifiers):
         target_input = None
         for ps in self.player_settings:
             inp = ps.get("name_input")
-            if inp and inp.rect.collide_with_point(x, y):
+            if inp and inp.rect.point_in_rect(x, y):
                 target_input = inp
                 break
         self.deactivate_other_inputs(target_input)
@@ -390,15 +485,37 @@ class SettingsView(arcade.View):
         
         if self.dropdown_type == "figure":
             new_figure = self.dropdown_items[index]
-            settings["players"][player_idx]["figure"] = new_figure
+            other_idx = self.apply_unique_value(player_idx, "figure", new_figure)
             self.player_settings[player_idx]["figure_btn"].text = new_figure
+            if other_idx is not None:
+                self.player_settings[other_idx]["figure_btn"].text = settings["players"][other_idx]["figure"]
         else:
             new_color = self.dropdown_items[index]
-            settings["players"][player_idx]["color"] = new_color
+            other_idx = self.apply_unique_value(player_idx, "color", new_color)
             self.player_settings[player_idx]["color_btn"].text = COLOR_NAMES.get(new_color, "?")
+            if other_idx is not None:
+                other_color = settings["players"][other_idx]["color"]
+                self.player_settings[other_idx]["color_btn"].text = COLOR_NAMES.get(other_color, "?")
         
         self.dropdown_active = False
         self.error_label.text = ""
+
+    def apply_unique_value(self, player_idx, key, new_value):
+        settings = self.window.game_settings
+        player_count = settings["player_count"]
+        players = settings["players"]
+        old_value = players[player_idx][key]
+        if new_value == old_value:
+            return None
+        other_idx = None
+        for i in range(player_count):
+            if i != player_idx and players[i][key] == new_value:
+                other_idx = i
+                break
+        players[player_idx][key] = new_value
+        if other_idx is not None:
+            players[other_idx][key] = old_value
+        return other_idx
     
     def get_used_figures(self, exclude_player: int):
         settings = self.window.game_settings
@@ -419,52 +536,50 @@ class SettingsView(arcade.View):
     def on_open_figure_dropdown(self, event):
         btn = event.source
         idx = btn.player_index
-        used = self.get_used_figures(idx)
-        available = [f for f in AVAILABLE_FIGURES if f not in used]
-        
-        if not available:
+        if self.dropdown_active and self.dropdown_type == "figure" and self.dropdown_player_index == idx:
+            self.dropdown_active = False
             return
         
         self.dropdown_active = True
         self.dropdown_type = "figure"
         self.dropdown_player_index = idx
-        self.dropdown_items = available
+        self.dropdown_items = list(AVAILABLE_FIGURES)
+        self.dropdown_anchor = (btn.rect.center_x, btn.rect.bottom - 6)
     
     def on_open_color_dropdown(self, event):
         btn = event.source
         idx = btn.player_index
-        used = self.get_used_colors(idx)
-        available = [c for c in AVAILABLE_COLORS if c not in used]
-        
-        if not available:
+        if self.dropdown_active and self.dropdown_type == "color" and self.dropdown_player_index == idx:
+            self.dropdown_active = False
             return
         
         self.dropdown_active = True
         self.dropdown_type = "color"
         self.dropdown_player_index = idx
-        self.dropdown_items = available
+        self.dropdown_items = list(AVAILABLE_COLORS)
+        self.dropdown_anchor = (btn.rect.center_x, btn.rect.bottom - 6)
     
     def on_decrease_width(self, event):
         settings = self.window.game_settings
-        if settings["width"] > 5:
+        if settings["width"] > MIN_BOARD_SIZE:
             settings["width"] -= 1
             self.width_label.text = str(settings["width"])
     
     def on_increase_width(self, event):
         settings = self.window.game_settings
-        if settings["width"] < 30:
+        if settings["width"] < MAX_BOARD_SIZE:
             settings["width"] += 1
             self.width_label.text = str(settings["width"])
     
     def on_decrease_height(self, event):
         settings = self.window.game_settings
-        if settings["height"] > 5:
+        if settings["height"] > MIN_BOARD_SIZE:
             settings["height"] -= 1
             self.height_label.text = str(settings["height"])
     
     def on_increase_height(self, event):
         settings = self.window.game_settings
-        if settings["height"] < 30:
+        if settings["height"] < MAX_BOARD_SIZE:
             settings["height"] += 1
             self.height_label.text = str(settings["height"])
     
@@ -472,15 +587,16 @@ class SettingsView(arcade.View):
         settings = self.window.game_settings
         if settings["player_count"] > 2:
             settings["player_count"] -= 1
-            self.player_count_label.text = str(settings["player_count"])
             self.error_label.text = ""
+            self.setup_ui()
     
     def on_increase_players(self, event):
         settings = self.window.game_settings
-        if settings["player_count"] < 4:
+        if settings["player_count"] < MAX_PLAYERS:
             settings["player_count"] += 1
-            self.player_count_label.text = str(settings["player_count"])
-            self.ensure_unique_settings()
+            self.ensure_players_capacity()
+            self.ensure_unique_settings(update_ui=False)
+            self.setup_ui()
     
     def on_toggle_hide_board(self, event):
         settings = self.window.game_settings
@@ -548,7 +664,7 @@ class SettingsView(arcade.View):
         else:
             patterns.append(pattern_data)
     
-    def ensure_unique_settings(self):
+    def ensure_unique_settings(self, update_ui: bool = True):
         settings = self.window.game_settings
         player_count = settings["player_count"]
         
@@ -563,7 +679,8 @@ class SettingsView(arcade.View):
                 for fig in AVAILABLE_FIGURES:
                     if fig not in used_figures:
                         settings["players"][i]["figure"] = fig
-                        self.player_settings[i]["figure_btn"].text = fig
+                        if update_ui and i < len(self.player_settings):
+                            self.player_settings[i]["figure_btn"].text = fig
                         break
             used_figures.add(settings["players"][i]["figure"])
             
@@ -571,7 +688,8 @@ class SettingsView(arcade.View):
                 for col in AVAILABLE_COLORS:
                     if col not in used_colors:
                         settings["players"][i]["color"] = col
-                        self.player_settings[i]["color_btn"].text = COLOR_NAMES.get(col, "?")
+                        if update_ui and i < len(self.player_settings):
+                            self.player_settings[i]["color_btn"].text = COLOR_NAMES.get(col, "?")
                         break
             used_colors.add(settings["players"][i]["color"])
     
@@ -601,7 +719,7 @@ class SettingsView(arcade.View):
             return
         
         settings = self.window.game_settings
-        for i in range(4):
+        for i in range(settings["player_count"]):
             name = self.player_settings[i]["name_input"].text.strip()
             if name:
                 settings["players"][i]["name"] = name

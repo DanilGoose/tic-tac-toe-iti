@@ -15,6 +15,8 @@ class ResultView(arcade.View):
     
     def setup_ui(self):
         self.manager.clear()
+        scale = min(self.window.width / 1024, self.window.height / 768)
+        scale = max(0.75, min(1.2, scale))
         
         v_box = arcade.gui.UIBoxLayout()
         
@@ -27,40 +29,42 @@ class ResultView(arcade.View):
         
         result_label = arcade.gui.UILabel(
             text=result_text,
-            font_size=44,
+            font_size=int(44 * scale),
             font_name="Arial",
             bold=True,
             text_color=result_color
         )
-        v_box.add(result_label.with_space_around(bottom=30))
+        v_box.add(result_label.with_padding(bottom=int(30 * scale)))
         
         if not self.is_draw and self.winner:
             figure_label = arcade.gui.UILabel(
                 text=self.winner.figure,
-                font_size=96,
+                font_size=int(96 * scale),
                 text_color=self.winner.color
             )
-            v_box.add(figure_label.with_space_around(bottom=50))
+            v_box.add(figure_label.with_padding(bottom=int(50 * scale)))
         
-        new_game_btn = arcade.gui.UIFlatButton(text="Новая игра", width=250, height=60)
+        btn_width = max(200, int(250 * scale))
+        btn_height = max(48, int(60 * scale))
+        new_game_btn = arcade.gui.UIFlatButton(text="Новая игра", width=btn_width, height=btn_height)
         new_game_btn.on_click = self.on_new_game_click
-        v_box.add(new_game_btn.with_space_around(bottom=25))
+        v_box.add(new_game_btn.with_padding(bottom=int(25 * scale)))
         
-        menu_btn = arcade.gui.UIFlatButton(text="В главное меню", width=250, height=60)
+        menu_btn = arcade.gui.UIFlatButton(text="В главное меню", width=btn_width, height=btn_height)
         menu_btn.on_click = self.on_menu_click
         v_box.add(menu_btn)
         
-        self.manager.add(
-            arcade.gui.UIAnchorWidget(
-                anchor_x="center_x",
-                anchor_y="center_y",
-                child=v_box
-            )
-        )
+        anchor = arcade.gui.UIAnchorLayout()
+        anchor.add(v_box, anchor_x="center", anchor_y="center")
+        self.manager.add(anchor)
     
     def on_show_view(self):
         arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
         self.manager.enable()
+    
+    def on_resize(self, width, height):
+        super().on_resize(width, height)
+        self.setup_ui()
     
     def on_hide_view(self):
         self.manager.disable()

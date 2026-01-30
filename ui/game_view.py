@@ -18,6 +18,7 @@ class GameView(arcade.View):
         self.cell_size = 40
         self.grid_offset_x = 50
         self.grid_offset_y = 100
+        self.sidebar_width = 180
         
         self.status_label = None
         self.current_player_label = None
@@ -55,23 +56,25 @@ class GameView(arcade.View):
         self.recalculate_layout()
     
     def recalculate_layout(self):
-        sidebar_width = 180
-        available_width = self.window.width - sidebar_width - 60
+        self.sidebar_width = max(140, int(self.window.width * 0.22))
+        available_width = self.window.width - self.sidebar_width - 60
         available_height = self.window.height - 100
         
         max_cell_width = available_width // self.board.width
         max_cell_height = available_height // self.board.height
-        self.cell_size = max(15, min(40, max_cell_width, max_cell_height))
+        self.cell_size = max(8, min(40, max_cell_width, max_cell_height))
         
         grid_width = self.board.width * self.cell_size
         grid_height = self.board.height * self.cell_size
         
-        total_width = grid_width + sidebar_width + 40
-        self.grid_offset_x = (self.window.width - total_width) // 2 + 20
-        self.grid_offset_y = (self.window.height - grid_height) // 2
+        total_width = grid_width + self.sidebar_width + 40
+        self.grid_offset_x = max(20, (self.window.width - total_width) // 2 + 20)
+        self.grid_offset_y = max(40, (self.window.height - grid_height) // 2)
     
     def setup_ui(self):
         self.manager.clear()
+        scale = min(self.window.width / 1024, self.window.height / 768)
+        scale = max(0.75, min(1.2, scale))
         
         sidebar_x = self.grid_offset_x + self.board.width * self.cell_size + 30
         
@@ -79,50 +82,52 @@ class GameView(arcade.View):
         
         self.current_player_label = arcade.gui.UILabel(
             text="",
-            font_size=20,
+            font_size=int(20 * scale),
             text_color=(255, 255, 255)
         )
-        v_box.add(self.current_player_label.with_space_around(bottom=15))
+        v_box.add(self.current_player_label.with_padding(bottom=int(15 * scale)))
         
         self.remaining_moves_label = arcade.gui.UILabel(
             text="",
-            font_size=18,
+            font_size=int(18 * scale),
             text_color=(255, 255, 255)
         )
-        v_box.add(self.remaining_moves_label.with_space_around(bottom=10))
+        v_box.add(self.remaining_moves_label.with_padding(bottom=int(10 * scale)))
         
         self.timer_label = arcade.gui.UILabel(
             text="Время: 0:00",
-            font_size=16,
+            font_size=int(16 * scale),
             text_color=(255, 255, 255)
         )
-        v_box.add(self.timer_label.with_space_around(bottom=20))
+        v_box.add(self.timer_label.with_padding(bottom=int(20 * scale)))
         
-        confirm_btn = arcade.gui.UIFlatButton(text="Подтвердить", width=140, height=45)
+        btn_width = max(120, int(140 * scale))
+        btn_height = max(38, int(45 * scale))
+        confirm_btn = arcade.gui.UIFlatButton(text="Подтвердить", width=btn_width, height=btn_height)
         confirm_btn.on_click = self.on_confirm_click
-        v_box.add(confirm_btn.with_space_around(bottom=12))
+        v_box.add(confirm_btn.with_padding(bottom=int(12 * scale)))
         
-        undo_btn = arcade.gui.UIFlatButton(text="Отменить", width=140, height=45)
+        undo_btn = arcade.gui.UIFlatButton(text="Отменить", width=btn_width, height=btn_height)
         undo_btn.on_click = self.on_undo_click
-        v_box.add(undo_btn.with_space_around(bottom=12))
+        v_box.add(undo_btn.with_padding(bottom=int(12 * scale)))
         
-        skip_btn = arcade.gui.UIFlatButton(text="Пропустить", width=140, height=45)
+        skip_btn = arcade.gui.UIFlatButton(text="Пропустить", width=btn_width, height=btn_height)
         skip_btn.on_click = self.on_skip_click
-        v_box.add(skip_btn.with_space_around(bottom=25))
+        v_box.add(skip_btn.with_padding(bottom=int(25 * scale)))
         
-        menu_btn = arcade.gui.UIFlatButton(text="В меню", width=140, height=45)
+        menu_btn = arcade.gui.UIFlatButton(text="В меню", width=btn_width, height=btn_height)
         menu_btn.on_click = self.on_menu_click
         v_box.add(menu_btn)
         
-        self.manager.add(
-            arcade.gui.UIAnchorWidget(
-                anchor_x="left",
-                anchor_y="top",
-                align_x=sidebar_x,
-                align_y=-50,
-                child=v_box
-            )
+        anchor = arcade.gui.UIAnchorLayout()
+        anchor.add(
+            v_box,
+            anchor_x="left",
+            anchor_y="top",
+            align_x=sidebar_x,
+            align_y=-int(50 * scale)
         )
+        self.manager.add(anchor)
         
         self.update_labels()
     
@@ -168,20 +173,20 @@ class GameView(arcade.View):
         self.draw_message()
     
     def build_grid_cache(self):
-        self.grid_shape_list = arcade.ShapeElementList()
+        self.grid_shape_list = arcade.shape_list.ShapeElementList()
         
         for y in range(self.board.height + 1):
             start_x = self.grid_offset_x
             end_x = self.grid_offset_x + self.board.width * self.cell_size
             pos_y = self.grid_offset_y + y * self.cell_size
-            line = arcade.create_line(start_x, pos_y, end_x, pos_y, arcade.color.WHITE, 1)
+            line = arcade.shape_list.create_line(start_x, pos_y, end_x, pos_y, arcade.color.WHITE, 1)
             self.grid_shape_list.append(line)
         
         for x in range(self.board.width + 1):
             pos_x = self.grid_offset_x + x * self.cell_size
             start_y = self.grid_offset_y
             end_y = self.grid_offset_y + self.board.height * self.cell_size
-            line = arcade.create_line(pos_x, start_y, pos_x, end_y, arcade.color.WHITE, 1)
+            line = arcade.shape_list.create_line(pos_x, start_y, pos_x, end_y, arcade.color.WHITE, 1)
             self.grid_shape_list.append(line)
     
     def draw_grid(self):
@@ -273,11 +278,13 @@ class GameView(arcade.View):
             center_x = self.grid_offset_x + x * self.cell_size + self.cell_size // 2
             center_y = self.grid_offset_y + y * self.cell_size + self.cell_size // 2
             
-            arcade.draw_rectangle_outline(
-                center_x, center_y,
-                self.cell_size - 4, self.cell_size - 4,
-                arcade.color.YELLOW, 2
+            rect = arcade.Rect.from_kwargs(
+                x=center_x,
+                y=center_y,
+                width=self.cell_size - 4,
+                height=self.cell_size - 4
             )
+            arcade.draw_rect_outline(rect, arcade.color.YELLOW, 2)
             
             font_size = int(self.cell_size * 0.5)
             self.draw_figure_with_outline(
@@ -293,16 +300,14 @@ class GameView(arcade.View):
             for x, y in self.rules.winning_cells:
                 center_x = self.grid_offset_x + x * self.cell_size + self.cell_size // 2
                 center_y = self.grid_offset_y + y * self.cell_size + self.cell_size // 2
-                arcade.draw_rectangle_filled(
-                    center_x, center_y,
-                    self.cell_size - 2, self.cell_size - 2,
-                    (0, 255, 0, 100)
+                rect = arcade.Rect.from_kwargs(
+                    x=center_x,
+                    y=center_y,
+                    width=self.cell_size - 2,
+                    height=self.cell_size - 2
                 )
-                arcade.draw_rectangle_outline(
-                    center_x, center_y,
-                    self.cell_size - 2, self.cell_size - 2,
-                    (0, 255, 0, 255), 3
-                )
+                arcade.draw_rect_filled(rect, (0, 255, 0, 100))
+                arcade.draw_rect_outline(rect, (0, 255, 0, 255), 3)
     
     def draw_message(self):
         if self.message:
@@ -364,6 +369,8 @@ class GameView(arcade.View):
     
     def show_game_over_ui(self):
         self.manager.clear()
+        scale = min(self.window.width / 1024, self.window.height / 768)
+        scale = max(0.75, min(1.2, scale))
         
         v_box = arcade.gui.UIBoxLayout()
         
@@ -376,31 +383,33 @@ class GameView(arcade.View):
         
         result_label = arcade.gui.UILabel(
             text=result_text,
-            font_size=28,
+            font_size=int(28 * scale),
             bold=True,
             text_color=result_color
         )
-        v_box.add(result_label.with_space_around(bottom=30))
+        v_box.add(result_label.with_padding(bottom=int(30 * scale)))
         
-        new_game_btn = arcade.gui.UIFlatButton(text="Новая игра", width=140, height=45)
+        btn_width = max(120, int(140 * scale))
+        btn_height = max(38, int(45 * scale))
+        new_game_btn = arcade.gui.UIFlatButton(text="Новая игра", width=btn_width, height=btn_height)
         new_game_btn.on_click = self.on_new_game_click
-        v_box.add(new_game_btn.with_space_around(bottom=15))
+        v_box.add(new_game_btn.with_padding(bottom=int(15 * scale)))
         
-        menu_btn = arcade.gui.UIFlatButton(text="В меню", width=140, height=45)
+        menu_btn = arcade.gui.UIFlatButton(text="В меню", width=btn_width, height=btn_height)
         menu_btn.on_click = self.on_menu_click
         v_box.add(menu_btn)
         
         sidebar_x = self.grid_offset_x + self.board.width * self.cell_size + 30
         
-        self.manager.add(
-            arcade.gui.UIAnchorWidget(
-                anchor_x="left",
-                anchor_y="top",
-                align_x=sidebar_x,
-                align_y=-50,
-                child=v_box
-            )
+        anchor = arcade.gui.UIAnchorLayout()
+        anchor.add(
+            v_box,
+            anchor_x="left",
+            anchor_y="top",
+            align_x=sidebar_x,
+            align_y=-int(50 * scale)
         )
+        self.manager.add(anchor)
     
     def on_new_game_click(self, event):
         from ui.game_view import GameView

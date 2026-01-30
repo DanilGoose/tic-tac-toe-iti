@@ -40,7 +40,7 @@ class PatternEditorView(arcade.View):
             bold=True,
             text_color=(255, 255, 255)
         )
-        v_box.add(title_label.with_space_around(bottom=20))
+        v_box.add(title_label.with_padding(bottom=20))
         
         name_box = arcade.gui.UIBoxLayout(vertical=False)
         
@@ -49,7 +49,7 @@ class PatternEditorView(arcade.View):
             font_size=16,
             text_color=(255, 255, 255)
         )
-        name_box.add(name_label.with_space_around(right=10))
+        name_box.add(name_label.with_padding(right=10))
         
         self.name_input = arcade.gui.UIInputText(
             text=self.pattern_data.get("name", "Новая фигура"),
@@ -63,49 +63,39 @@ class PatternEditorView(arcade.View):
             self.name_input.layout.selection_color = (80, 80, 80, 200)
         except Exception:
             pass
-        name_widget = self.name_input.with_background(self.input_bg_texture, 4, 6, 4, 6).with_border(2, arcade.color.WHITE)
+        name_widget = self.name_input.with_background(texture=self.input_bg_texture).with_border(width=2, color=arcade.color.WHITE)
         name_box.add(name_widget)
         
-        v_box.add(name_box.with_space_around(bottom=15))
+        v_box.add(name_box.with_padding(bottom=15))
         
         hint_label = arcade.gui.UILabel(
             text="Кликните на клетки чтобы создать фигуру",
             font_size=14,
             text_color=(200, 200, 200)
         )
-        v_box.add(hint_label.with_space_around(bottom=10))
+        v_box.add(hint_label.with_padding(bottom=10))
         
-        self.manager.add(
-            arcade.gui.UIAnchorWidget(
-                anchor_x="center",
-                anchor_y="top",
-                align_y=-30,
-                child=v_box
-            )
-        )
+        anchor = arcade.gui.UIAnchorLayout()
+        anchor.add(v_box, anchor_x="center", anchor_y="top", align_y=-30)
+        self.manager.add(anchor)
         
         btn_box = arcade.gui.UIBoxLayout(vertical=False)
         
         save_btn = arcade.gui.UIFlatButton(text="Сохранить", width=120, height=40)
         save_btn.on_click = self.on_save_click
-        btn_box.add(save_btn.with_space_around(right=15))
+        btn_box.add(save_btn.with_padding(right=15))
         
         clear_btn = arcade.gui.UIFlatButton(text="Очистить", width=120, height=40)
         clear_btn.on_click = self.on_clear_click
-        btn_box.add(clear_btn.with_space_around(right=15))
+        btn_box.add(clear_btn.with_padding(right=15))
         
         cancel_btn = arcade.gui.UIFlatButton(text="Отмена", width=120, height=40)
         cancel_btn.on_click = self.on_cancel_click
         btn_box.add(cancel_btn)
         
-        self.manager.add(
-            arcade.gui.UIAnchorWidget(
-                anchor_x="center",
-                anchor_y="bottom",
-                align_y=50,
-                child=btn_box
-            )
-        )
+        anchor = arcade.gui.UIAnchorLayout()
+        anchor.add(btn_box, anchor_x="center", anchor_y="bottom", align_y=50)
+        self.manager.add(anchor)
     
     def on_show_view(self):
         arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
@@ -130,22 +120,21 @@ class PatternEditorView(arcade.View):
                 cell_y = self.grid_offset_y + y * self.CELL_SIZE
                 
                 if (x, y) in self.cells:
-                    arcade.draw_rectangle_filled(
-                        cell_x + self.CELL_SIZE // 2,
-                        cell_y + self.CELL_SIZE // 2,
-                        self.CELL_SIZE - 2,
-                        self.CELL_SIZE - 2,
-                        (0, 200, 100)
+                    rect = arcade.Rect.from_kwargs(
+                        x=cell_x + self.CELL_SIZE // 2,
+                        y=cell_y + self.CELL_SIZE // 2,
+                        width=self.CELL_SIZE - 2,
+                        height=self.CELL_SIZE - 2
                     )
+                    arcade.draw_rect_filled(rect, (0, 200, 100))
                 
-                arcade.draw_rectangle_outline(
-                    cell_x + self.CELL_SIZE // 2,
-                    cell_y + self.CELL_SIZE // 2,
-                    self.CELL_SIZE - 2,
-                    self.CELL_SIZE - 2,
-                    arcade.color.WHITE,
-                    2
+                outline_rect = arcade.Rect.from_kwargs(
+                    x=cell_x + self.CELL_SIZE // 2,
+                    y=cell_y + self.CELL_SIZE // 2,
+                    width=self.CELL_SIZE - 2,
+                    height=self.CELL_SIZE - 2
                 )
+                arcade.draw_rect_outline(outline_rect, arcade.color.WHITE, 2)
     
     def on_mouse_press(self, x, y, button, modifiers):
         cell_x = (x - self.grid_offset_x) // self.CELL_SIZE

@@ -60,25 +60,26 @@ class GameRules:
         
         unique_moves = list(dict.fromkeys(self.pending_moves))
         valid_moves = [(x, y) for x, y in unique_moves if self.board.is_empty(x, y)]
-        
+
         for x, y in valid_moves:
             success = self.board.place_figure(x, y, current_player.player_id)
-            if success:
+            if success and not self.game_over:
                 win_cells = self.board.check_win_at(x, y, current_player.player_id, self.win_patterns)
-                if win_cells:
+                if win_cells and self.winner is None:
                     self.winner = current_player
                     self.winning_cells = win_cells
                     self.game_over = True
-                    self.pending_moves.clear()
-                    return True, f"Победил {current_player.name}!"
-        
+
         self.pending_moves.clear()
-        
+
+        if self.game_over and self.winner:
+            return True, f"Победил {current_player.name}!"
+
         if self.board.is_full():
             self.is_draw = True
             self.game_over = True
             return True, "Ничья!"
-        
+
         self.current_player_index = (self.current_player_index + 1) % len(self.players)
         return True, "Ход завершён"
     

@@ -17,6 +17,8 @@ class GameRules:
         self.winning_cells: List[Tuple[int, int]] = []
         self.is_draw = False
         self.game_over = False
+        self.last_player_index: Optional[int] = None
+        self.eliminated: set[int] = set()
     
     def get_current_player(self) -> Player:
         return self.players[self.current_player_index]
@@ -24,6 +26,18 @@ class GameRules:
     def get_remaining_moves(self) -> int:
         return self.MAX_MOVES_PER_TURN - len(self.pending_moves)
     
+    def is_player_active(self, index: int) -> bool:
+        return index not in self.eliminated
+
+    def eliminate_last_player(self) -> bool:
+        if self.last_player_index is None:
+            return False
+        self.eliminated.add(self.last_player_index)
+        if len(self.eliminated) >= len(self.players):
+            self.is_draw = True
+            self.game_over = True
+        return True
+
     def add_pending_move(self, x: int, y: int) -> Tuple[bool, str]:
         if self.game_over:
             return False, "Игра окончена"
@@ -62,27 +76,42 @@ class GameRules:
         valid_moves = [(x, y) for x, y in unique_moves if self.board.is_empty(x, y)]
 
         for x, y in valid_moves:
-            success = self.board.place_figure(x, y, current_player.player_id)
-            if success and not self.game_over:
-                win_cells = self.board.check_win_at(x, y, current_player.player_id, self.win_patterns)
-                if win_cells and self.winner is None:
-                    self.winner = current_player
-                    self.winning_cells = win_cells
-                    self.game_over = True
+            self.board.place_figure(x, y, current_player.player_id)
 
         self.pending_moves.clear()
+        self.last_player_index = self.current_player_index
+        return True, "OK"
 
-        if self.game_over and self.winner:
-            return True, f"Победил {current_player.name}!"
+    def advance_turn(self) -> Tuple[bool, str]:
+        if self.game_over:
+            return False, "Игра окончена"
+        if len(self.eliminated) >= len(self.players):
+            return False, "Игра окончена"
+        attempts = 0
+        while attempts < len(self.players):
+            self.current_player_index = (self.current_player_index + 1) % len(self.players)
+            if self.current_player_index not in self.eliminated:
+                return True, "OK"
+            attempts += 1
+        return False, "Игра окончена"
 
-        if self.board.is_full():
-            self.is_draw = True
-            self.game_over = True
-            return True, "Ничья!"
+    def check_winner(self) -> Tuple[bool, str]:
+        if self.game_over:
+            return False, "Игра окончена"
+        if self.last_player_index is None:
+            return False, "OK"
+        player = self.players[self.last_player_index]
+        for y in range(self.board.height):
+            for x in range(self.board.width):
+                if self.board.get_cell(x, y) == player.player_id:
+                    win_cells = self.board.check_win_at(x, y, player.player_id, self.win_patterns)
+                    if win_cells:
+                        self.winner = player
+                        self.winning_cells = win_cells
+                        self.game_over = True
+                        return True, "OK"
+        return False, "OK"
 
-        self.current_player_index = (self.current_player_index + 1) % len(self.players)
-        return True, "Ход завершён"
-    
     def skip_turn(self) -> Tuple[bool, str]:
         if self.game_over:
             return False, "Игра окончена"
@@ -99,6 +128,8 @@ class GameRules:
         self.winning_cells = []
         self.is_draw = False
         self.game_over = False
+        self.last_player_index = None
+        self.eliminated.clear()
     
     def parse_coordinate(self, coord_str: str) -> Optional[Tuple[int, int]]:
         coord_str = coord_str.strip().upper()

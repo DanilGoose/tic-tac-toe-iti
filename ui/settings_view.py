@@ -23,6 +23,11 @@ class SettingsView(arcade.View):
         self.dropdown_anchor = None
         self.pattern_scroll_offset = 0
         self.input_bg_texture = None
+        self.scroll_offset = 0
+        self.scroll_max = 0
+        self.scroll_step = 40
+        self.scroll_margin = 20
+        self.main_box = None
     
     def setup_ui(self):
         self.manager.clear()
@@ -334,9 +339,9 @@ class SettingsView(arcade.View):
         
         main_box.add(buttons_box.with_padding(top=section_spacing))
         
-        anchor = arcade.gui.UIAnchorLayout()
-        anchor.add(main_box, anchor_x="center", anchor_y="center")
-        self.manager.add(anchor)
+        self.main_box = main_box
+        self.update_scroll_bounds()
+        self.manager.add(self.main_box)
     
     def on_show_view(self):
         arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
@@ -355,6 +360,16 @@ class SettingsView(arcade.View):
         self.clear()
         self.manager.draw()
         self.draw_dropdown()
+
+    def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
+        if self.dropdown_active:
+            self.dropdown_active = False
+            self.manager.enable()
+            return
+        if not self.main_box or self.scroll_max <= 0 or scroll_y == 0:
+            return
+        self.scroll_offset = max(0, min(self.scroll_offset - scroll_y * self.scroll_step, self.scroll_max))
+        self.apply_scroll_position()
     
     def draw_dropdown(self):
         if not self.dropdown_active or not self.dropdown_items or self.dropdown_anchor is None:
@@ -432,6 +447,33 @@ class SettingsView(arcade.View):
             return 2
         return 1
 
+    def update_scroll_bounds(self):
+        if not self.main_box:
+            return
+        scale = self.get_scale()
+        self.scroll_margin = max(10, int(20 * scale))
+        self.scroll_step = max(20, int(40 * scale))
+        self.main_box._prepare_layout()
+        self.main_box.fit_content()
+        available_height = max(1, self.window.height - self.scroll_margin * 2)
+        self.scroll_max = max(0, self.main_box.rect.height - available_height)
+        self.scroll_offset = max(0, min(self.scroll_offset, self.scroll_max))
+        self.apply_scroll_position()
+
+    def apply_scroll_position(self):
+        if not self.main_box:
+            return
+        center_x = self.window.width / 2
+        rect = self.main_box.rect.align_center_x(center_x)
+        if self.scroll_max > 0:
+            top_y = self.window.height - self.scroll_margin
+            rect = rect.align_top(top_y + self.scroll_offset)
+        else:
+            center_y = self.window.height / 2
+            rect = rect.align_center_y(center_y)
+        self.main_box.rect = rect
+        self.manager.trigger_render()
+
     def ensure_players_capacity(self):
         settings = self.window.game_settings
         settings["player_count"] = max(2, min(MAX_PLAYERS, settings.get("player_count", 2)))
@@ -456,7 +498,7 @@ class SettingsView(arcade.View):
         target_input = None
         for ps in self.player_settings:
             inp = ps.get("name_input")
-            if inp and inp.rect.point_in_rect(x, y):
+            if inp and inp.rect.point_in_rect((x, y)):
                 target_input = inp
                 break
         self.deactivate_other_inputs(target_input)
@@ -467,6 +509,7 @@ class SettingsView(arcade.View):
                     self.select_dropdown_item(i)
                     return
             self.dropdown_active = False
+            self.manager.enable()
             return
 
     def deactivate_other_inputs(self, keep_input):
@@ -498,6 +541,7 @@ class SettingsView(arcade.View):
                 self.player_settings[other_idx]["color_btn"].text = COLOR_NAMES.get(other_color, "?")
         
         self.dropdown_active = False
+        self.manager.enable()
         self.error_label.text = ""
 
     def apply_unique_value(self, player_idx, key, new_value):
@@ -538,9 +582,11 @@ class SettingsView(arcade.View):
         idx = btn.player_index
         if self.dropdown_active and self.dropdown_type == "figure" and self.dropdown_player_index == idx:
             self.dropdown_active = False
+            self.manager.enable()
             return
         
         self.dropdown_active = True
+        self.manager.disable()
         self.dropdown_type = "figure"
         self.dropdown_player_index = idx
         self.dropdown_items = list(AVAILABLE_FIGURES)
@@ -551,9 +597,11 @@ class SettingsView(arcade.View):
         idx = btn.player_index
         if self.dropdown_active and self.dropdown_type == "color" and self.dropdown_player_index == idx:
             self.dropdown_active = False
+            self.manager.enable()
             return
         
         self.dropdown_active = True
+        self.manager.disable()
         self.dropdown_type = "color"
         self.dropdown_player_index = idx
         self.dropdown_items = list(AVAILABLE_COLORS)

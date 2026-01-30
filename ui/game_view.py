@@ -33,6 +33,7 @@ class GameView(arcade.View):
         self.grid_shape_list = None
         self.grid_labels_cache = None
         self.figures_dirty = True
+        self.awaiting_check = False
         
         self.setup_game()
         self.setup_ui()
@@ -103,22 +104,26 @@ class GameView(arcade.View):
         
         btn_width = max(120, int(140 * scale))
         btn_height = max(38, int(45 * scale))
-        confirm_btn = arcade.gui.UIFlatButton(text="Подтвердить", width=btn_width, height=btn_height)
-        confirm_btn.on_click = self.on_confirm_click
-        v_box.add(confirm_btn.with_padding(bottom=int(12 * scale)))
-        
-        undo_btn = arcade.gui.UIFlatButton(text="Отменить", width=btn_width, height=btn_height)
-        undo_btn.on_click = self.on_undo_click
-        v_box.add(undo_btn.with_padding(bottom=int(12 * scale)))
-        
-        skip_btn = arcade.gui.UIFlatButton(text="Пропустить", width=btn_width, height=btn_height)
-        skip_btn.on_click = self.on_skip_click
-        v_box.add(skip_btn.with_padding(bottom=int(25 * scale)))
-        
-        menu_btn = arcade.gui.UIFlatButton(text="В меню", width=btn_width, height=btn_height)
-        menu_btn.on_click = self.on_menu_click
-        v_box.add(menu_btn)
-        
+        if self.awaiting_check:
+            check_btn = arcade.gui.UIFlatButton(text="Проверить", width=btn_width, height=btn_height)
+            check_btn.on_click = self.on_check_click
+            v_box.add(check_btn.with_padding(bottom=int(12 * scale)))
+
+            next_btn = arcade.gui.UIFlatButton(text="Далее", width=btn_width, height=btn_height)
+            next_btn.on_click = self.on_next_click
+            v_box.add(next_btn.with_padding(bottom=int(12 * scale)))
+        else:
+            confirm_btn = arcade.gui.UIFlatButton(text="Подтвердить", width=btn_width, height=btn_height)
+            confirm_btn.on_click = self.on_confirm_click
+            v_box.add(confirm_btn.with_padding(bottom=int(12 * scale)))
+
+            undo_btn = arcade.gui.UIFlatButton(text="назад", width=btn_width, height=btn_height)
+            undo_btn.on_click = self.on_undo_click
+            v_box.add(undo_btn.with_padding(bottom=int(12 * scale)))
+
+            menu_btn = arcade.gui.UIFlatButton(text="выход из игры", width=btn_width, height=btn_height)
+            menu_btn.on_click = self.on_menu_click
+            v_box.add(menu_btn)
         anchor = arcade.gui.UIAnchorLayout()
         anchor.add(
             v_box,
@@ -134,7 +139,7 @@ class GameView(arcade.View):
     def update_labels(self):
         current = self.rules.get_current_player()
         self.current_player_label.text = f"Ход: {current.name} ({current.figure})"
-        remaining = self.rules.get_remaining_moves()
+        remaining = 0 if self.awaiting_check else self.rules.get_remaining_moves()
         self.remaining_moves_label.text = f"Осталось ходов: {remaining}"
     
     def on_show_view(self):
@@ -333,7 +338,7 @@ class GameView(arcade.View):
         return None
     
     def on_mouse_press(self, x, y, button, modifiers):
-        if self.rules.game_over:
+        if self.rules.game_over or self.awaiting_check:
             return
         
         cell = self.get_cell_from_mouse(x, y)
@@ -345,28 +350,63 @@ class GameView(arcade.View):
             self.update_labels()
     
     def on_key_press(self, key, modifiers):
+        if self.awaiting_check:
+            if key == arcade.key.ESCAPE:
+                self.on_menu_click(None)
+            return
         if key == arcade.key.ENTER:
             self.on_confirm_click(None)
         elif key == arcade.key.ESCAPE:
             self.on_menu_click(None)
-    
+
     def on_confirm_click(self, event):
-        if self.rules.game_over:
+        if self.rules.game_over or self.awaiting_check:
             return
-        
+
         success, msg = self.rules.confirm_turn()
         if success:
-            if self.rules.game_over:
-                if self.settings.get("hide_board_on_win", True):
-                    from ui.result_view import ResultView
-                    result_view = ResultView(self.rules.winner, self.rules.is_draw, self.settings)
-                    self.window.show_view(result_view)
-                else:
-                    self.show_game_over_ui()
+            self.awaiting_check = True
+            self.setup_ui()
         else:
             self.show_message(msg)
         self.update_labels()
-    
+
+    def on_check_click(self, event):
+        if self.rules.game_over:
+            return
+
+        success, _ = self.rules.check_winner()
+        if success:
+            if self.settings.get("hide_board_on_win", True):
+                from ui.result_view import ResultView
+                result_view = ResultView(self.rules.winner, self.rules.is_draw, self.settings)
+                self.window.show_view(result_view)
+            else:
+                self.show_game_over_ui()
+            return
+        print(-1)
+        self.rules.eliminate_last_player()
+        if self.rules.is_draw or self.rules.game_over:
+            if self.settings.get("hide_board_on_win", True):
+                from ui.result_view import ResultView
+                result_view = ResultView(self.rules.winner, self.rules.is_draw, self.settings)
+                self.window.show_view(result_view)
+            else:
+                self.show_game_over_ui()
+            return
+        self.rules.advance_turn()
+        self.awaiting_check = False
+        self.setup_ui()
+        self.update_labels()
+
+    def on_next_click(self, event):
+        if self.rules.game_over:
+            return
+        self.rules.advance_turn()
+        self.awaiting_check = False
+        self.setup_ui()
+        self.update_labels()
+
     def show_game_over_ui(self):
         self.manager.clear()
         scale = min(self.window.width / 1024, self.window.height / 768)

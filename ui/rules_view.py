@@ -16,7 +16,7 @@ class RulesView(arcade.View):
         v_box = arcade.gui.UIBoxLayout()
         
         title_label = arcade.gui.UILabel(
-            text="Правила игры",
+            text="Правила игры для исходных настроек",
             font_size=int(32 * scale),
             font_name="Arial",
             text_color=arcade.color.WHITE

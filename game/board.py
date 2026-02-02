@@ -129,9 +129,36 @@ class Board:
             if not pattern.get("enabled", True):
                 continue
             
-            pattern_cells = pattern.get("cells", [])
+            raw_cells = pattern.get("cells", [])
+            pattern_cells = []
+            for cell in raw_cells:
+                if cell is None or len(cell) != 2:
+                    continue
+                try:
+                    cx = int(cell[0])
+                    cy = int(cell[1])
+                except (TypeError, ValueError):
+                    continue
+                pattern_cells.append((cx, cy))
             if not pattern_cells:
                 continue
+
+            normalized = normalize_pattern(pattern_cells)
+            line_info = self._get_line_info(normalized)
+            if line_info:
+                dx, dy, length = line_info
+                if self.grid[y][x] == player_id:
+                    total = 1 + self.count_in_direction(x, y, dx, dy, player_id) + self.count_in_direction(x, y, -dx, -dy, player_id)
+                    if total >= length:
+                        start_x = x - dx * self.count_in_direction(x, y, -dx, -dy, player_id)
+                        start_y = y - dy * self.count_in_direction(x, y, -dx, -dy, player_id)
+                        winning_cells = []
+                        cx, cy = start_x, start_y
+                        for _ in range(total):
+                            winning_cells.append((cx, cy))
+                            cx += dx
+                            cy += dy
+                        return winning_cells[:length]
             
             cells_tuple = tuple(sorted(pattern_cells))
             transformations = get_pattern_transformations_cached(cells_tuple)
@@ -165,4 +192,28 @@ class Board:
                     if match and len(winning_cells) == pattern_size:
                         return winning_cells
         
+        return None
+
+    def _get_line_info(self, cells: List[Tuple[int, int]]) -> Optional[Tuple[int, int, int]]:
+        if len(cells) < 2:
+            return None
+        xs = [x for x, _ in cells]
+        ys = [y for _, y in cells]
+        length = len(cells)
+        if all(y == ys[0] for y in ys):
+            xs_sorted = sorted(set(xs))
+            if len(xs_sorted) == length and xs_sorted == list(range(xs_sorted[0], xs_sorted[0] + length)):
+                return (1, 0, length)
+        if all(x == xs[0] for x in xs):
+            ys_sorted = sorted(set(ys))
+            if len(ys_sorted) == length and ys_sorted == list(range(ys_sorted[0], ys_sorted[0] + length)):
+                return (0, 1, length)
+        if all((x - y) == (xs[0] - ys[0]) for x, y in cells):
+            points = sorted(cells, key=lambda p: p[0])
+            if all(points[i + 1][0] - points[i][0] == 1 and points[i + 1][1] - points[i][1] == 1 for i in range(length - 1)):
+                return (1, 1, length)
+        if all((x + y) == (xs[0] + ys[0]) for x, y in cells):
+            points = sorted(cells, key=lambda p: p[0])
+            if all(points[i + 1][0] - points[i][0] == 1 and points[i + 1][1] - points[i][1] == -1 for i in range(length - 1)):
+                return (1, -1, length)
         return None

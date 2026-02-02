@@ -3,6 +3,7 @@ import arcade.gui
 from game.board import Board
 from game.player import Player
 from game.rules import GameRules
+from game.player_db import record_game_result
 
 
 class GameView(arcade.View):
@@ -14,6 +15,7 @@ class GameView(arcade.View):
         self.players = []
         self.rules = None
         self.manager = arcade.gui.UIManager()
+        self.stats_recorded = False
         
         self.cell_size = 40
         self.grid_offset_x = 50
@@ -54,7 +56,15 @@ class GameView(arcade.View):
         
         win_patterns = self.settings.get("win_patterns")
         self.rules = GameRules(self.board, self.players, win_patterns)
+        self.stats_recorded = False
         self.recalculate_layout()
+
+    def record_stats_once(self):
+        if self.stats_recorded:
+            return
+        winner_name = self.rules.winner.name if self.rules.winner else None
+        record_game_result([player.name for player in self.players], winner_name)
+        self.stats_recorded = True
     
     def recalculate_layout(self):
         self.sidebar_width = max(140, int(self.window.width * 0.22))
@@ -377,6 +387,7 @@ class GameView(arcade.View):
 
         success, _ = self.rules.check_winner()
         if success:
+            self.record_stats_once()
             if self.settings.get("hide_board_on_win", True):
                 from ui.result_view import ResultView
                 result_view = ResultView(self.rules.winner, self.rules.is_draw, self.settings)
@@ -384,9 +395,9 @@ class GameView(arcade.View):
             else:
                 self.show_game_over_ui()
             return
-        print(-1)
         self.rules.eliminate_last_player()
         if self.rules.is_draw or self.rules.game_over:
+            self.record_stats_once()
             if self.settings.get("hide_board_on_win", True):
                 from ui.result_view import ResultView
                 result_view = ResultView(self.rules.winner, self.rules.is_draw, self.settings)
@@ -408,6 +419,7 @@ class GameView(arcade.View):
         self.update_labels()
 
     def show_game_over_ui(self):
+        self.record_stats_once()
         self.manager.clear()
         scale = min(self.window.width / 1024, self.window.height / 768)
         scale = max(0.75, min(1.2, scale))

@@ -33,9 +33,11 @@ class GameRules:
         if self.last_player_index is None:
             return False
         self.eliminated.add(self.last_player_index)
-        if len(self.eliminated) >= len(self.players):
+        active = [i for i in range(len(self.players)) if i not in self.eliminated]
+        if len(active) == 0:
             self.is_draw = True
             self.game_over = True
+            self.winner = None
         return True
 
     def add_pending_move(self, x: int, y: int) -> Tuple[bool, str]:

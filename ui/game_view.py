@@ -7,7 +7,7 @@ from game.player_db import record_game_result
 
 
 class GameView(arcade.View):
-    RUS_COLS = "АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
+    RUS_COLS = "АБВГДЕЖИКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
     def __init__(self, settings: dict):
         super().__init__()
         self.settings = settings
@@ -209,18 +209,37 @@ class GameView(arcade.View):
             self.build_grid_cache()
         
         self.grid_shape_list.draw()
+
+        label_font_size = max(14, int(self.cell_size * 0.5))
+        label_offset = max(14, int(label_font_size * 0.8))
         
         for x in range(self.board.width):
             col_label = self.RUS_COLS[x] if x < len(self.RUS_COLS) else f"{x+1}"
             pos_x = self.grid_offset_x + x * self.cell_size + self.cell_size // 2
-            pos_y = self.grid_offset_y - 15
-            arcade.draw_text(col_label, pos_x, pos_y, arcade.color.WHITE, 10, anchor_x="center")
+            pos_y = self.grid_offset_y - label_offset
+            arcade.draw_text(
+                col_label,
+                pos_x,
+                pos_y,
+                arcade.color.WHITE,
+                label_font_size,
+                anchor_x="center",
+                anchor_y="center",
+            )
 
         for y in range(self.board.height):
             row_label = str(y + 1)
-            pos_x = self.grid_offset_x - 15
+            pos_x = self.grid_offset_x - label_offset
             pos_y = self.grid_offset_y + y * self.cell_size + self.cell_size // 2
-            arcade.draw_text(row_label, pos_x, pos_y, arcade.color.WHITE, 10, anchor_x="center", anchor_y="center")
+            arcade.draw_text(
+                row_label,
+                pos_x,
+                pos_y,
+                arcade.color.WHITE,
+                label_font_size,
+                anchor_x="center",
+                anchor_y="center",
+            )
     
     def draw_figure_with_outline(self, text, center_x, center_y, color, font_size, alpha=255):
         outline_offset = max(1, font_size // 12)

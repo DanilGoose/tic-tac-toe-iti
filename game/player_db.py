@@ -55,7 +55,6 @@ def _connect() -> sqlite3.Connection:
         db_path = os.path.join(db_dir, "players.db")
         try:
             conn = sqlite3.connect(db_path)
-            # Probe write access early (helps when running from a bundled .exe).
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("CREATE TABLE IF NOT EXISTS __codex_probe (id INTEGER)")
             conn.commit()

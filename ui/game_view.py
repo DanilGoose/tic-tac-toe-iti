@@ -67,20 +67,56 @@ class GameView(arcade.View):
         self.stats_recorded = True
     
     def recalculate_layout(self):
+        min_cell_size = 8
+        side_gap = 30
+        outer_margin = 20
+
         self.sidebar_width = max(140, int(self.window.width * 0.22))
-        available_width = self.window.width - self.sidebar_width - 60
-        available_height = self.window.height - 100
-        
-        max_cell_width = available_width // self.board.width
-        max_cell_height = available_height // self.board.height
-        self.cell_size = max(8, min(40, max_cell_width, max_cell_height))
-        
+
+        cell_size = max(min_cell_size, int(self.cell_size) or min_cell_size)
+        for _ in range(3):
+            label_font_size = max(14, int(cell_size * 0.5))
+            label_offset = max(14, int(label_font_size * 0.8))
+            label_pad = label_offset + label_font_size // 2 + 4
+
+            left_pad = label_pad + outer_margin
+            bottom_pad = label_pad + outer_margin
+            right_pad = outer_margin
+            top_pad = outer_margin
+
+            available_width = self.window.width - left_pad - side_gap - self.sidebar_width - right_pad
+            available_height = self.window.height - top_pad - bottom_pad
+            if available_width <= 0 or available_height <= 0:
+                new_cell = min_cell_size
+            else:
+                max_cell_width = available_width // self.board.width
+                max_cell_height = available_height // self.board.height
+                new_cell = max(min_cell_size, min(max_cell_width, max_cell_height))
+
+            if new_cell == cell_size:
+                break
+            cell_size = new_cell
+
+        self.cell_size = cell_size
+        label_font_size = max(14, int(self.cell_size * 0.5))
+        label_offset = max(14, int(label_font_size * 0.8))
+        label_pad = label_offset + label_font_size // 2 + 4
+
         grid_width = self.board.width * self.cell_size
         grid_height = self.board.height * self.cell_size
-        
-        total_width = grid_width + self.sidebar_width + 40
-        self.grid_offset_x = max(20, (self.window.width - total_width) // 2 + 20)
-        self.grid_offset_y = max(40, (self.window.height - grid_height) // 2)
+
+        left_pad = label_pad + outer_margin
+        bottom_pad = label_pad + outer_margin
+        right_pad = outer_margin
+        top_pad = outer_margin
+
+        total_width = left_pad + grid_width + side_gap + self.sidebar_width + right_pad
+        extra_x = max(0, self.window.width - total_width)
+        self.grid_offset_x = int(left_pad + extra_x // 2)
+
+        total_height = bottom_pad + grid_height + top_pad
+        extra_y = max(0, self.window.height - total_height)
+        self.grid_offset_y = int(bottom_pad + extra_y // 2)
     
     def setup_ui(self):
         self.manager.clear()

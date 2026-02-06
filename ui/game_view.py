@@ -268,12 +268,18 @@ class GameView(FadeView):
         width = max(0, self.window.width - left)
         if width <= 0:
             return
+        bg = arcade.color.DARK_SLATE_GRAY
+        if hasattr(bg, "r"):
+            rgb = (int(bg.r), int(bg.g), int(bg.b))
+        else:
+            bg_tuple = tuple(bg)
+            rgb = tuple(int(v) for v in bg_tuple[:3]) if len(bg_tuple) >= 3 else (0, 0, 0)
         arcade.draw_lbwh_rectangle_filled(
             left,
             0,
             width,
             self.window.height,
-            (*arcade.color.DARK_SLATE_GRAY, int(255 * self._sidebar_fade)),
+            (*rgb, int(255 * self._sidebar_fade)),
         )
     
     def build_grid_cache(self):

@@ -1,16 +1,32 @@
 import arcade
 import arcade.gui
+from pathlib import Path
 from game.player_db import get_player_names
 from ui.fade_view import FadeView
 
 
+ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 class MenuView(FadeView):
     def __init__(self):
         super().__init__()
         self.manager = arcade.gui.UIManager()
         self.error_label = None
+        self.textures = {}
+        self.load_textures()
         self.setup_ui()
-    
+
+    def load_textures(self):
+        if self.textures:
+            return
+        self.textures = {
+            "play": arcade.load_texture(str(ASSETS_DIR / "play.png")),
+            "settings": arcade.load_texture(str(ASSETS_DIR / "settings.png")),
+            "add_player": arcade.load_texture(str(ASSETS_DIR / "add_player.png")),
+            "rating": arcade.load_texture(str(ASSETS_DIR / "rating.png")),
+            "rules": arcade.load_texture(str(ASSETS_DIR / "rules.png")),
+            "exit": arcade.load_texture(str(ASSETS_DIR / "exit.png")),
+        }
+
     def setup_ui(self):
         self.manager.clear()
         scale = min(self.window.width / 1024, self.window.height / 768)
@@ -26,33 +42,28 @@ class MenuView(FadeView):
             text_color=(255, 255, 255)
         )
         v_box.add(title_label.with_padding(bottom=int(60 * scale)))
-        
+
         btn_width = max(220, int(280 * scale))
         btn_height = max(48, int(60 * scale))
-        play_button = arcade.gui.UIFlatButton(text="Играть", width=btn_width, height=btn_height)
-        play_button.on_click = self.on_play_click
-        v_box.add(play_button.with_padding(bottom=int(25 * scale)))
-        
-        settings_button = arcade.gui.UIFlatButton(text="Настройки", width=btn_width, height=btn_height)
-        settings_button.on_click = self.on_settings_click
-        v_box.add(settings_button.with_padding(bottom=int(25 * scale)))
+        icon_size = max(36, int(44 * scale))
+        bottom_padding = int(25 * scale)
 
-        add_player_button = arcade.gui.UIFlatButton(text="Добавить игрока", width=btn_width, height=btn_height)
-        add_player_button.on_click = self.on_add_player_click
-        v_box.add(add_player_button.with_padding(bottom=int(25 * scale)))
+        def add_icon_button(key: str, label: str, handler):
+            row = arcade.gui.UIBoxLayout(vertical=False, align="center", space_between=int(12 * scale))
+            icon = arcade.gui.UIImage(texture=self.textures[key], width=icon_size, height=icon_size)
+            button = arcade.gui.UIFlatButton(text=label, width=btn_width, height=btn_height)
+            button.on_click = handler
+            row.add(icon)
+            row.add(button)
+            v_box.add(row.with_padding(bottom=bottom_padding))
 
-        rating_button = arcade.gui.UIFlatButton(text="Рейтинг игроков", width=btn_width, height=btn_height)
-        rating_button.on_click = self.on_rating_click
-        v_box.add(rating_button.with_padding(bottom=int(25 * scale)))
-        
-        rules_button = arcade.gui.UIFlatButton(text="Правила", width=btn_width, height=btn_height)
-        rules_button.on_click = self.on_rules_click
-        v_box.add(rules_button.with_padding(bottom=int(25 * scale)))
-        
-        exit_button = arcade.gui.UIFlatButton(text="Выход", width=btn_width, height=btn_height)
-        exit_button.on_click = self.on_exit_click
-        v_box.add(exit_button.with_padding(bottom=int(25 * scale)))
-        
+        add_icon_button("play", "Играть", self.on_play_click)
+        add_icon_button("settings", "Настройки", self.on_settings_click)
+        add_icon_button("add_player", "Добавить игрока", self.on_add_player_click)
+        add_icon_button("rating", "Рейтинг игроков", self.on_rating_click)
+        add_icon_button("rules", "Правила", self.on_rules_click)
+        add_icon_button("exit", "Выход", self.on_exit_click)
+
         self.error_label = arcade.gui.UILabel(
             text="",
             font_size=int(18 * scale),

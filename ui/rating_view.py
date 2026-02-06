@@ -45,64 +45,129 @@ class RatingView(FadeView):
             )
             v_box.add(empty_label.with_padding(bottom=int(20 * scale)))
         else:
-            header = arcade.gui.UIBoxLayout(vertical=False)
             name_w = max(220, int(320 * scale))
             games_w = max(90, int(120 * scale))
             wins_w = max(90, int(120 * scale))
             actions_w = max(160, int(200 * scale))
             col_gap = int(20 * scale)
+            row_gap = int(6 * scale)
+            table_width = name_w + games_w + wins_w + actions_w + col_gap * 3
 
-            header.add(arcade.gui.UILabel(text="Название", font_size=int(20 * scale), text_color=(255, 255, 255), width=name_w).with_padding(right=col_gap))
-            header.add(arcade.gui.UILabel(text="Игры", font_size=int(20 * scale), text_color=(255, 255, 255), width=games_w).with_padding(right=col_gap))
-            header.add(arcade.gui.UILabel(text="Победы", font_size=int(20 * scale), text_color=(255, 255, 255), width=wins_w).with_padding(right=col_gap))
-            header.add(arcade.gui.UILabel(text="Действие", font_size=int(20 * scale), text_color=(255, 255, 255), width=actions_w))
-            v_box.add(header.with_padding(bottom=int(10 * scale)))
+            table = arcade.gui.UIGridLayout(
+                column_count=4,
+                row_count=1 + len(stats),
+                align_horizontal="left",
+                align_vertical="center",
+                horizontal_spacing=col_gap,
+                vertical_spacing=row_gap,
+                width=table_width,
+            )
 
-            for row in stats:
-                row_box = arcade.gui.UIBoxLayout(vertical=False)
-                
+            table.add(
+                arcade.gui.UILabel(
+                    text="Название",
+                    font_size=int(20 * scale),
+                    text_color=(255, 255, 255),
+                    width=name_w,
+                    bold=True,
+                    align="left",
+                ),
+                column=0,
+                row=0,
+            )
+            table.add(
+                arcade.gui.UILabel(
+                    text="Игры",
+                    font_size=int(20 * scale),
+                    text_color=(255, 255, 255),
+                    width=games_w,
+                    bold=True,
+                    align="center",
+                ),
+                column=1,
+                row=0,
+            )
+            table.add(
+                arcade.gui.UILabel(
+                    text="Победы",
+                    font_size=int(20 * scale),
+                    text_color=(255, 255, 255),
+                    width=wins_w,
+                    bold=True,
+                    align="center",
+                ),
+                column=2,
+                row=0,
+            )
+            table.add(
+                arcade.gui.UILabel(
+                    text="Действие",
+                    font_size=int(20 * scale),
+                    text_color=(255, 255, 255),
+                    width=actions_w,
+                    bold=True,
+                    align="center",
+                ),
+                column=3,
+                row=0,
+            )
+
+            actions_gap = int(10 * scale)
+            actions_btn_h = max(26, int(32 * scale))
+            actions_btn_w = max(90, int((actions_w - actions_gap) / 2))
+
+            for row_index, row in enumerate(stats, start=1):
                 player_name = row["name"]
-                row_box.add(
+                table.add(
                     arcade.gui.UILabel(
                         text=player_name,
                         font_size=int(18 * scale),
                         text_color=(230, 230, 230),
                         width=name_w,
-                    ).with_padding(right=col_gap)
+                        align="left",
+                    ),
+                    column=0,
+                    row=row_index,
                 )
-                row_box.add(
+                table.add(
                     arcade.gui.UILabel(
                         text=str(row["games_played"]),
                         font_size=int(18 * scale),
                         text_color=(230, 230, 230),
                         width=games_w,
-                    ).with_padding(right=col_gap)
+                        align="center",
+                    ),
+                    column=1,
+                    row=row_index,
                 )
-                row_box.add(
+                table.add(
                     arcade.gui.UILabel(
                         text=str(row["wins"]),
                         font_size=int(18 * scale),
                         text_color=(230, 230, 230),
                         width=wins_w,
-                    ).with_padding(right=col_gap)
+                        align="center",
+                    ),
+                    column=2,
+                    row=row_index,
                 )
 
-                actions = arcade.gui.UIBoxLayout(vertical=False)
+                actions = arcade.gui.UIBoxLayout(vertical=False, align="center", space_between=actions_gap)
                 actions.width = actions_w
-                actions_btn_w = max(90, int((actions_w - 10) / 2))
-                edit_btn = arcade.gui.UIFlatButton(text="Изменить", width=actions_btn_w, height=max(26, int(32 * scale)))
+                edit_btn = arcade.gui.UIFlatButton(text="Изменить", width=actions_btn_w, height=actions_btn_h)
                 edit_btn.player_name = player_name
                 edit_btn.on_click = self.on_edit_click
-                actions.add(edit_btn.with_padding(right=10))
+                actions.add(edit_btn)
 
                 delete_text = "Удалить" if self.pending_delete_name != player_name else "Подтвердить"
-                del_btn = arcade.gui.UIFlatButton(text=delete_text, width=actions_btn_w, height=max(26, int(32 * scale)))
+                del_btn = arcade.gui.UIFlatButton(text=delete_text, width=actions_btn_w, height=actions_btn_h)
                 del_btn.player_name = player_name
                 del_btn.on_click = self.on_delete_click
                 actions.add(del_btn)
 
-                row_box.add(actions)
-                v_box.add(row_box.with_padding(bottom=int(6 * scale)))
+                table.add(actions, column=3, row=row_index)
+
+            v_box.add(table.with_padding(bottom=int(10 * scale)))
 
         btn_width = max(200, int(240 * scale))
         btn_height = max(44, int(54 * scale))

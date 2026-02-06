@@ -4,9 +4,10 @@ from game.board import Board
 from game.player import Player
 from game.rules import GameRules
 from game.player_db import record_game_result
+from ui.fade_view import FadeView
 
 
-class GameView(arcade.View):
+class GameView(FadeView):
     RUS_COLS = "АБВГДЕЖИКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
     def __init__(self, settings: dict):
         super().__init__()
@@ -36,10 +37,26 @@ class GameView(arcade.View):
         self.grid_labels_cache = None
         self.figures_dirty = True
         self.awaiting_check = False
+        self._sidebar_fade = 0.0
+        self._sidebar_fade_phase = None
+        self._sidebar_fade_duration = 0.16
+        self._sidebar_target_awaiting_check = None
+        self._board_intro_time = 0.0
+        self._board_intro_duration = 0.55
         
         self.setup_game()
         self.setup_ui()
-    
+
+    def start_sidebar_transition(self, target_awaiting_check: bool):
+        if self._sidebar_fade_phase is not None:
+            return
+        if self.awaiting_check == target_awaiting_check:
+            return
+        self._sidebar_target_awaiting_check = target_awaiting_check
+        self._sidebar_fade = 0.0
+        self._sidebar_fade_phase = "out"
+        self.manager.disable()
+
     def setup_game(self):
         self.board = Board(self.settings["width"], self.settings["height"])
         
@@ -191,6 +208,8 @@ class GameView(arcade.View):
     def on_show_view(self):
         arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
         self.manager.enable()
+        self._board_intro_time = 0.0
+        super().on_show_view()
     
     def on_resize(self, width, height):
         super().on_resize(width, height)
@@ -202,6 +221,23 @@ class GameView(arcade.View):
         self.manager.disable()
     
     def on_update(self, delta_time):
+        super().on_update(delta_time)
+        if self._board_intro_time < self._board_intro_duration:
+            self._board_intro_time = min(self._board_intro_duration, self._board_intro_time + float(delta_time))
+        if self._sidebar_fade_phase == "out":
+            self._sidebar_fade = min(1.0, self._sidebar_fade + float(delta_time) / self._sidebar_fade_duration)
+            if self._sidebar_fade >= 1.0:
+                self.awaiting_check = bool(self._sidebar_target_awaiting_check)
+                self._sidebar_target_awaiting_check = None
+                self.setup_ui()
+                self.update_labels()
+                self._sidebar_fade_phase = "in"
+        elif self._sidebar_fade_phase == "in":
+            self._sidebar_fade = max(0.0, self._sidebar_fade - float(delta_time) / self._sidebar_fade_duration)
+            if self._sidebar_fade <= 0.0:
+                self._sidebar_fade_phase = None
+                self.manager.enable()
+
         if self.message_timer > 0:
             self.message_timer -= delta_time
             if self.message_timer <= 0:
@@ -222,6 +258,23 @@ class GameView(arcade.View):
         self.draw_winning_line()
         self.manager.draw()
         self.draw_message()
+        self.draw_sidebar_fade()
+        self.draw_fade()
+
+    def draw_sidebar_fade(self):
+        if self._sidebar_fade <= 0.0 or not self.window:
+            return
+        left = self.grid_offset_x + self.board.width * self.cell_size + 10
+        width = max(0, self.window.width - left)
+        if width <= 0:
+            return
+        arcade.draw_lbwh_rectangle_filled(
+            left,
+            0,
+            width,
+            self.window.height,
+            (*arcade.color.DARK_SLATE_GRAY, int(255 * self._sidebar_fade)),
+        )
     
     def build_grid_cache(self):
         self.grid_shape_list = arcade.shape_list.ShapeElementList()
@@ -241,6 +294,10 @@ class GameView(arcade.View):
             self.grid_shape_list.append(line)
     
     def draw_grid(self):
+        scale = self.get_board_intro_scale()
+        if scale < 0.999:
+            self.draw_grid_scaled(scale)
+            return
         if self.grid_shape_list is None:
             self.build_grid_cache()
         
@@ -271,6 +328,76 @@ class GameView(arcade.View):
                 row_label,
                 pos_x,
                 pos_y,
+                arcade.color.WHITE,
+                label_font_size,
+                anchor_x="center",
+                anchor_y="center",
+            )
+
+    def get_board_intro_scale(self) -> float:
+        if self._board_intro_duration <= 0:
+            return 1.0
+        progress = min(1.0, self._board_intro_time / self._board_intro_duration)
+        ease = 1.0 - (1.0 - progress) ** 3
+        return 0.2 + 0.8 * ease
+
+    def transform_point(self, x: float, y: float, scale: float) -> tuple[float, float]:
+        center_x = self.grid_offset_x + self.board.width * self.cell_size / 2
+        center_y = self.grid_offset_y + self.board.height * self.cell_size / 2
+        return (
+            center_x + (x - center_x) * scale,
+            center_y + (y - center_y) * scale,
+        )
+
+    def draw_grid_scaled(self, scale: float):
+        center_x = self.grid_offset_x + self.board.width * self.cell_size / 2
+        center_y = self.grid_offset_y + self.board.height * self.cell_size / 2
+        grid_left = self.grid_offset_x
+        grid_bottom = self.grid_offset_y
+        grid_right = grid_left + self.board.width * self.cell_size
+        grid_top = grid_bottom + self.board.height * self.cell_size
+        thickness = max(1, int(1 * scale))
+
+        for y in range(self.board.height + 1):
+            pos_y = grid_bottom + y * self.cell_size
+            start_x, start_y = self.transform_point(grid_left, pos_y, scale)
+            end_x, end_y = self.transform_point(grid_right, pos_y, scale)
+            arcade.draw_line(start_x, start_y, end_x, end_y, arcade.color.WHITE, thickness)
+
+        for x in range(self.board.width + 1):
+            pos_x = grid_left + x * self.cell_size
+            start_x, start_y = self.transform_point(pos_x, grid_bottom, scale)
+            end_x, end_y = self.transform_point(pos_x, grid_top, scale)
+            arcade.draw_line(start_x, start_y, end_x, end_y, arcade.color.WHITE, thickness)
+
+        base_label_font_size = max(14, int(self.cell_size * 0.5))
+        label_font_size = max(8, int(base_label_font_size * scale))
+        label_offset = max(10, int(max(14, int(base_label_font_size * 0.8)) * scale))
+
+        for x in range(self.board.width):
+            col_label = self.RUS_COLS[x] if x < len(self.RUS_COLS) else f"{x + 1}"
+            pos_x = grid_left + x * self.cell_size + self.cell_size / 2
+            pos_y = grid_bottom - label_offset
+            draw_x, draw_y = self.transform_point(pos_x, pos_y, scale)
+            arcade.draw_text(
+                col_label,
+                draw_x,
+                draw_y,
+                arcade.color.WHITE,
+                label_font_size,
+                anchor_x="center",
+                anchor_y="center",
+            )
+
+        for y in range(self.board.height):
+            row_label = str(y + 1)
+            pos_x = grid_left - label_offset
+            pos_y = grid_bottom + y * self.cell_size + self.cell_size / 2
+            draw_x, draw_y = self.transform_point(pos_x, pos_y, scale)
+            arcade.draw_text(
+                row_label,
+                draw_x,
+                draw_y,
                 arcade.color.WHITE,
                 label_font_size,
                 anchor_x="center",
@@ -327,14 +454,16 @@ class GameView(arcade.View):
         )
     
     def draw_figures(self):
+        scale = self.get_board_intro_scale()
         for y in range(self.board.height):
             for x in range(self.board.width):
                 player_id = self.board.get_cell(x, y)
                 if player_id is not None:
                     player = self.players[player_id]
-                    center_x = self.grid_offset_x + x * self.cell_size + self.cell_size // 2
-                    center_y = self.grid_offset_y + y * self.cell_size + self.cell_size // 2
-                    font_size = int(self.cell_size * 0.6)
+                    base_x = self.grid_offset_x + x * self.cell_size + self.cell_size / 2
+                    base_y = self.grid_offset_y + y * self.cell_size + self.cell_size / 2
+                    center_x, center_y = self.transform_point(base_x, base_y, scale)
+                    font_size = max(8, int(self.cell_size * 0.6 * scale))
                     self.draw_figure_with_outline(
                         player.figure,
                         center_x, center_y,
@@ -343,20 +472,22 @@ class GameView(arcade.View):
                     )
     
     def draw_pending_moves(self):
+        scale = self.get_board_intro_scale()
         current = self.rules.get_current_player()
         for x, y in self.rules.pending_moves:
-            center_x = self.grid_offset_x + x * self.cell_size + self.cell_size // 2
-            center_y = self.grid_offset_y + y * self.cell_size + self.cell_size // 2
+            base_x = self.grid_offset_x + x * self.cell_size + self.cell_size / 2
+            base_y = self.grid_offset_y + y * self.cell_size + self.cell_size / 2
+            center_x, center_y = self.transform_point(base_x, base_y, scale)
             
             rect = arcade.Rect.from_kwargs(
                 x=center_x,
                 y=center_y,
-                width=self.cell_size - 4,
-                height=self.cell_size - 4
+                width=(self.cell_size - 4) * scale,
+                height=(self.cell_size - 4) * scale
             )
             arcade.draw_rect_outline(rect, arcade.color.YELLOW, 2)
             
-            font_size = int(self.cell_size * 0.5)
+            font_size = max(8, int(self.cell_size * 0.5 * scale))
             self.draw_figure_with_outline(
                 current.figure,
                 center_x, center_y,
@@ -366,15 +497,17 @@ class GameView(arcade.View):
             )
     
     def draw_winning_line(self):
+        scale = self.get_board_intro_scale()
         if self.rules.winning_cells:
             for x, y in self.rules.winning_cells:
-                center_x = self.grid_offset_x + x * self.cell_size + self.cell_size // 2
-                center_y = self.grid_offset_y + y * self.cell_size + self.cell_size // 2
+                base_x = self.grid_offset_x + x * self.cell_size + self.cell_size / 2
+                base_y = self.grid_offset_y + y * self.cell_size + self.cell_size / 2
+                center_x, center_y = self.transform_point(base_x, base_y, scale)
                 rect = arcade.Rect.from_kwargs(
                     x=center_x,
                     y=center_y,
-                    width=self.cell_size - 2,
-                    height=self.cell_size - 2
+                    width=(self.cell_size - 2) * scale,
+                    height=(self.cell_size - 2) * scale
                 )
                 arcade.draw_rect_filled(rect, (0, 255, 0, 100))
                 arcade.draw_rect_outline(rect, (0, 255, 0, 255), 3)
@@ -405,6 +538,8 @@ class GameView(arcade.View):
     def on_mouse_press(self, x, y, button, modifiers):
         if self.rules.game_over or self.awaiting_check:
             return
+        if self._sidebar_fade_phase is not None:
+            return
         
         cell = self.get_cell_from_mouse(x, y)
         if cell:
@@ -419,6 +554,8 @@ class GameView(arcade.View):
             if key == arcade.key.ESCAPE:
                 self.on_menu_click(None)
             return
+        if self._sidebar_fade_phase is not None:
+            return
         if key == arcade.key.ENTER:
             self.on_confirm_click(None)
         elif key == arcade.key.ESCAPE:
@@ -427,17 +564,20 @@ class GameView(arcade.View):
     def on_confirm_click(self, event):
         if self.rules.game_over or self.awaiting_check:
             return
+        if self._sidebar_fade_phase is not None:
+            return
 
         success, msg = self.rules.confirm_turn()
         if success:
-            self.awaiting_check = True
-            self.setup_ui()
-        else:
-            self.show_message(msg)
+            self.start_sidebar_transition(True)
+            return
+        self.show_message(msg)
         self.update_labels()
 
     def on_check_click(self, event):
         if self.rules.game_over:
+            return
+        if self._sidebar_fade_phase is not None:
             return
 
         success, _ = self.rules.check_winner()
@@ -446,7 +586,7 @@ class GameView(arcade.View):
             if self.settings.get("hide_board_on_win", True):
                 from ui.result_view import ResultView
                 result_view = ResultView(self.rules.winner, self.rules.is_draw, self.settings)
-                self.window.show_view(result_view)
+                self.window.show_view_fade(result_view)
             else:
                 self.show_game_over_ui()
             return
@@ -456,22 +596,20 @@ class GameView(arcade.View):
             if self.settings.get("hide_board_on_win", True):
                 from ui.result_view import ResultView
                 result_view = ResultView(self.rules.winner, self.rules.is_draw, self.settings)
-                self.window.show_view(result_view)
+                self.window.show_view_fade(result_view)
             else:
                 self.show_game_over_ui()
             return
         self.rules.advance_turn()
-        self.awaiting_check = False
-        self.setup_ui()
-        self.update_labels()
+        self.start_sidebar_transition(False)
 
     def on_next_click(self, event):
         if self.rules.game_over:
             return
+        if self._sidebar_fade_phase is not None:
+            return
         self.rules.advance_turn()
-        self.awaiting_check = False
-        self.setup_ui()
-        self.update_labels()
+        self.start_sidebar_transition(False)
 
     def show_game_over_ui(self):
         self.record_stats_once()
@@ -521,7 +659,7 @@ class GameView(arcade.View):
     def on_new_game_click(self, event):
         from ui.game_view import GameView
         game_view = GameView(self.settings)
-        self.window.show_view(game_view)
+        self.window.show_view_fade(game_view)
     
     def on_undo_click(self, event):
         self.rules.remove_last_pending_move()
@@ -538,4 +676,4 @@ class GameView(arcade.View):
     def on_menu_click(self, event):
         from ui.menu_view import MenuView
         menu_view = MenuView()
-        self.window.show_view(menu_view)
+        self.window.show_view_fade(menu_view)

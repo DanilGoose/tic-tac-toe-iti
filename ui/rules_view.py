@@ -1,8 +1,9 @@
 import arcade
 import arcade.gui
+from ui.fade_view import FadeView
 
 
-class RulesView(arcade.View):
+class RulesView(FadeView):
     def __init__(self):
         super().__init__()
         self.manager = arcade.gui.UIManager()
@@ -56,6 +57,7 @@ class RulesView(arcade.View):
     def on_show_view(self):
         arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
         self.manager.enable()
+        super().on_show_view()
     
     def on_resize(self, width, height):
         super().on_resize(width, height)
@@ -67,8 +69,9 @@ class RulesView(arcade.View):
     def on_draw(self):
         self.clear()
         self.manager.draw()
+        self.draw_fade()
     
     def on_back_click(self, event):
         from ui.menu_view import MenuView
         menu_view = MenuView()
-        self.window.show_view(menu_view)
+        self.window.show_view_fade(menu_view)

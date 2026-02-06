@@ -1,9 +1,10 @@
 import arcade
 import arcade.gui
 from game.player_db import get_player_names
+from ui.fade_view import FadeView
 
 
-class MenuView(arcade.View):
+class MenuView(FadeView):
     def __init__(self):
         super().__init__()
         self.manager = arcade.gui.UIManager()
@@ -75,6 +76,7 @@ class MenuView(arcade.View):
     def on_show_view(self):
         arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
         self.manager.enable()
+        super().on_show_view()
     
     def on_resize(self, width, height):
         super().on_resize(width, height)
@@ -86,6 +88,7 @@ class MenuView(arcade.View):
     def on_draw(self):
         self.clear()
         self.manager.draw()
+        self.draw_fade()
     
     def on_play_click(self, event):
         settings = self.window.game_settings
@@ -107,25 +110,25 @@ class MenuView(arcade.View):
             return
         from ui.game_view import GameView
         game_view = GameView(self.window.game_settings)
-        self.window.show_view(game_view)
+        self.window.show_view_fade(game_view)
     
     def on_settings_click(self, event):
         from ui.settings_view import SettingsView
         settings_view = SettingsView()
-        self.window.show_view(settings_view)
+        self.window.show_view_fade(settings_view)
     
     def on_rules_click(self, event):
         from ui.rules_view import RulesView
         rules_view = RulesView()
-        self.window.show_view(rules_view)
+        self.window.show_view_fade(rules_view)
 
     def on_add_player_click(self, event):
         from ui.player_add_view import PlayerAddView
-        self.window.show_view(PlayerAddView())
+        self.window.show_view_fade(PlayerAddView())
 
     def on_rating_click(self, event):
         from ui.rating_view import RatingView
-        self.window.show_view(RatingView())
+        self.window.show_view_fade(RatingView())
     
     def on_exit_click(self, event):
         arcade.close_window()

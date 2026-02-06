@@ -2,9 +2,10 @@ import arcade
 import arcade.gui
 
 from game.player_db import get_player_stats, delete_player
+from ui.fade_view import FadeView
 
 
-class RatingView(arcade.View):
+class RatingView(FadeView):
     def __init__(self):
         super().__init__()
         self.manager = arcade.gui.UIManager()
@@ -116,6 +117,7 @@ class RatingView(arcade.View):
     def on_show_view(self):
         arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
         self.manager.enable()
+        super().on_show_view()
 
     def on_resize(self, width, height):
         super().on_resize(width, height)
@@ -127,15 +129,16 @@ class RatingView(arcade.View):
     def on_draw(self):
         self.clear()
         self.manager.draw()
+        self.draw_fade()
 
     def on_back_click(self, event):
         from ui.menu_view import MenuView
-        self.window.show_view(MenuView())
+        self.window.show_view_fade(MenuView())
 
     def on_edit_click(self, event):
         self.pending_delete_name = None
         from ui.player_rename_view import PlayerRenameView
-        self.window.show_view(PlayerRenameView(event.source.player_name))
+        self.window.show_view_fade(PlayerRenameView(event.source.player_name))
 
     def on_delete_click(self, event):
         name = event.source.player_name

@@ -22,6 +22,7 @@ def get_default_settings():
         "height": 20,
         "player_count": 0,
         "hide_board_on_win": False,
+        "music_volume": 0.2,
         "win_patterns": get_default_patterns(),
         "players": [
             {"name": "", "figure": AVAILABLE_FIGURES[i], "color": AVAILABLE_COLORS[i]}

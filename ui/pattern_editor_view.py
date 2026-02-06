@@ -1,8 +1,9 @@
 import arcade
 import arcade.gui
+from ui.fade_view import FadeView
 
 
-class PatternEditorView(arcade.View):
+class PatternEditorView(FadeView):
     GRID_SIZE = 7
     CELL_SIZE = 40
     
@@ -100,6 +101,7 @@ class PatternEditorView(arcade.View):
     def on_show_view(self):
         arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
         self.manager.enable()
+        super().on_show_view()
     
     def on_hide_view(self):
         self.manager.disable()
@@ -112,6 +114,7 @@ class PatternEditorView(arcade.View):
         self.clear()
         self.draw_grid()
         self.manager.draw()
+        self.draw_fade()
     
     def draw_grid(self):
         for y in range(self.GRID_SIZE):
@@ -172,7 +175,7 @@ class PatternEditorView(arcade.View):
         
         from ui.settings_view import SettingsView
         settings_view = SettingsView()
-        self.window.show_view(settings_view)
+        self.window.show_view_fade(settings_view)
     
     def on_clear_click(self, event):
         self.cells.clear()
@@ -180,4 +183,4 @@ class PatternEditorView(arcade.View):
     def on_cancel_click(self, event):
         from ui.settings_view import SettingsView
         settings_view = SettingsView()
-        self.window.show_view(settings_view)
+        self.window.show_view_fade(settings_view)

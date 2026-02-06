@@ -2,9 +2,10 @@ import arcade
 import arcade.gui
 
 from game.player_db import rename_player
+from ui.fade_view import FadeView
 
 
-class PlayerRenameView(arcade.View):
+class PlayerRenameView(FadeView):
     def __init__(self, old_name: str):
         super().__init__()
         self.old_name = old_name
@@ -78,6 +79,7 @@ class PlayerRenameView(arcade.View):
     def on_show_view(self):
         arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
         self.manager.enable()
+        super().on_show_view()
 
     def on_resize(self, width, height):
         super().on_resize(width, height)
@@ -89,6 +91,7 @@ class PlayerRenameView(arcade.View):
     def on_draw(self):
         self.clear()
         self.manager.draw()
+        self.draw_fade()
 
     def on_save_click(self, event):
         new_name = self.name_input.text if self.name_input else ""
@@ -97,9 +100,8 @@ class PlayerRenameView(arcade.View):
             self.error_label.text = error
             return
         from ui.rating_view import RatingView
-        self.window.show_view(RatingView())
+        self.window.show_view_fade(RatingView())
 
     def on_cancel_click(self, event):
         from ui.rating_view import RatingView
-        self.window.show_view(RatingView())
-
+        self.window.show_view_fade(RatingView())

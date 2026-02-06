@@ -2,9 +2,10 @@ import arcade
 import arcade.gui
 
 from game.player_db import add_player
+from ui.fade_view import FadeView
 
 
-class PlayerAddView(arcade.View):
+class PlayerAddView(FadeView):
     def __init__(self):
         super().__init__()
         self.manager = arcade.gui.UIManager()
@@ -67,6 +68,7 @@ class PlayerAddView(arcade.View):
     def on_show_view(self):
         arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
         self.manager.enable()
+        super().on_show_view()
 
     def on_resize(self, width, height):
         super().on_resize(width, height)
@@ -78,6 +80,7 @@ class PlayerAddView(arcade.View):
     def on_draw(self):
         self.clear()
         self.manager.draw()
+        self.draw_fade()
 
     def on_add_click(self, event):
         name = self.name_input.text if self.name_input else ""
@@ -86,8 +89,8 @@ class PlayerAddView(arcade.View):
             self.error_label.text = error
             return
         from ui.menu_view import MenuView
-        self.window.show_view(MenuView())
+        self.window.show_view_fade(MenuView())
 
     def on_back_click(self, event):
         from ui.menu_view import MenuView
-        self.window.show_view(MenuView())
+        self.window.show_view_fade(MenuView())

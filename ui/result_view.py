@@ -2,9 +2,10 @@ import arcade
 import arcade.gui
 from game.player import Player
 from typing import Optional
+from ui.fade_view import FadeView
 
 
-class ResultView(arcade.View):
+class ResultView(FadeView):
     def __init__(self, winner: Optional[Player], is_draw: bool, settings: dict):
         super().__init__()
         self.winner = winner
@@ -61,6 +62,7 @@ class ResultView(arcade.View):
     def on_show_view(self):
         arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
         self.manager.enable()
+        super().on_show_view()
     
     def on_resize(self, width, height):
         super().on_resize(width, height)
@@ -72,13 +74,14 @@ class ResultView(arcade.View):
     def on_draw(self):
         self.clear()
         self.manager.draw()
+        self.draw_fade()
     
     def on_new_game_click(self, event):
         from ui.game_view import GameView
         game_view = GameView(self.settings)
-        self.window.show_view(game_view)
+        self.window.show_view_fade(game_view)
     
     def on_menu_click(self, event):
         from ui.menu_view import MenuView
         menu_view = MenuView()
-        self.window.show_view(menu_view)
+        self.window.show_view_fade(menu_view)

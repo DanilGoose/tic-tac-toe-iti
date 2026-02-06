@@ -4,9 +4,10 @@ from game.board import MIN_BOARD_SIZE, MAX_BOARD_SIZE
 from game.player import AVAILABLE_FIGURES, AVAILABLE_COLORS, COLOR_NAMES, MAX_PLAYERS
 from game.settings import get_default_settings
 from game.player_db import get_player_names
+from ui.fade_view import FadeView
 
 
-class SettingsView(arcade.View):
+class SettingsView(FadeView):
     MAX_VISIBLE_PATTERNS = 5
     
     def __init__(self):
@@ -15,6 +16,7 @@ class SettingsView(arcade.View):
         self.width_label = None
         self.height_label = None
         self.player_count_label = None
+        self.music_volume_label = None
         self.player_settings = []
         self.error_label = None
         self.dropdown_active = False
@@ -36,6 +38,7 @@ class SettingsView(arcade.View):
         self.player_settings = []
         
         settings = self.window.game_settings
+        volume_value = self.normalize_music_volume()
         self.available_player_names = get_player_names()
         if self.available_player_names and settings.get("player_count", 0) > len(self.available_player_names):
             settings["player_count"] = len(self.available_player_names)
@@ -175,6 +178,32 @@ class SettingsView(arcade.View):
         hide_board_box.add(self.hide_board_btn)
         
         main_box.add(hide_board_box.with_padding(bottom=section_spacing))
+
+        music_box = arcade.gui.UIBoxLayout(vertical=False)
+        music_label = arcade.gui.UILabel(
+            text="Громкость музыки:",
+            font_size=small_label_size,
+            text_color=(255, 255, 255),
+        )
+        music_box.add(music_label.with_padding(right=15))
+
+        music_minus = arcade.gui.UIFlatButton(text="-", width=small_btn_width, height=btn_height)
+        music_minus.on_click = self.on_decrease_music_volume
+        music_box.add(music_minus.with_padding(right=10))
+
+        percent_value = int(round(volume_value * 100))
+        self.music_volume_label = arcade.gui.UILabel(
+            text=f"{percent_value}%",
+            font_size=label_size,
+            text_color=(255, 255, 100),
+        )
+        music_box.add(self.music_volume_label.with_padding(right=10))
+
+        music_plus = arcade.gui.UIFlatButton(text="+", width=small_btn_width, height=btn_height)
+        music_plus.on_click = self.on_increase_music_volume
+        music_box.add(music_plus)
+
+        main_box.add(music_box.with_padding(bottom=section_spacing))
         
         player_config_label = arcade.gui.UILabel(
             text="Настройки игроков:",
@@ -355,6 +384,7 @@ class SettingsView(arcade.View):
         arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
         self.setup_ui()
         self.manager.enable()
+        super().on_show_view()
     
     def on_resize(self, width, height):
         super().on_resize(width, height)
@@ -368,6 +398,7 @@ class SettingsView(arcade.View):
         self.clear()
         self.manager.draw()
         self.draw_dropdown()
+        self.draw_fade()
 
     def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
         if self.dropdown_active:
@@ -682,11 +713,41 @@ class SettingsView(arcade.View):
         settings["hide_board_on_win"] = not settings.get("hide_board_on_win", False)
         self.hide_board_btn.text = "Да" if settings["hide_board_on_win"] else "Нет"
 
+    def normalize_music_volume(self) -> float:
+        settings = self.window.game_settings
+        try:
+            volume = float(settings.get("music_volume", 0.12))
+        except (TypeError, ValueError):
+            volume = 0.12
+        volume = max(0.0, min(1.0, volume))
+        settings["music_volume"] = volume
+        return volume
+
+    def update_music_volume_label(self):
+        if not self.music_volume_label:
+            return
+        settings = self.window.game_settings
+        percent_value = int(round(float(settings.get("music_volume", 0.12)) * 100))
+        self.music_volume_label.text = f"{percent_value}%"
+
+    def on_decrease_music_volume(self, event):
+        volume = self.normalize_music_volume()
+        volume = max(0.0, volume - 0.05)
+        self.window.set_music_volume(volume)
+        self.update_music_volume_label()
+
+    def on_increase_music_volume(self, event):
+        volume = self.normalize_music_volume()
+        volume = min(1.0, volume + 0.05)
+        self.window.set_music_volume(volume)
+        self.update_music_volume_label()
+
     def on_reset_click(self, event):
         settings = self.window.game_settings
         defaults = get_default_settings()
         settings.clear()
         settings.update(defaults)
+        self.window.set_music_volume(settings.get("music_volume", 0.12))
         self.pattern_scroll_offset = 0
         self.scroll_offset = 0
         self.dropdown_active = False
@@ -707,7 +768,7 @@ class SettingsView(arcade.View):
         if idx < len(patterns):
             from ui.pattern_editor_view import PatternEditorView
             editor = PatternEditorView(idx, patterns[idx].copy(), self.save_pattern)
-            self.window.show_view(editor)
+            self.window.show_view_fade(editor)
     
     def on_pattern_scroll_up(self, event):
         if self.pattern_scroll_offset > 0:
@@ -743,7 +804,7 @@ class SettingsView(arcade.View):
         }
         from ui.pattern_editor_view import PatternEditorView
         editor = PatternEditorView(len(patterns), new_pattern, self.save_pattern)
-        self.window.show_view(editor)
+        self.window.show_view_fade(editor)
     
     def save_pattern(self, index: int, pattern_data: dict):
         settings = self.window.game_settings
@@ -827,9 +888,9 @@ class SettingsView(arcade.View):
         
         from ui.menu_view import MenuView
         menu_view = MenuView()
-        self.window.show_view(menu_view)
+        self.window.show_view_fade(menu_view)
     
     def on_back_click(self, event):
         from ui.menu_view import MenuView
         menu_view = MenuView()
-        self.window.show_view(menu_view)
+        self.window.show_view_fade(menu_view)
